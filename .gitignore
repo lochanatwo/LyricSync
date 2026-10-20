@@ -1,0 +1,8 @@
+build/
+cmake-build-*/
+.vs/
+.idea/
+*.user
+*.suo
+*.xcuserstate
+DerivedData/

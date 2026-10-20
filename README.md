@@ -1,1 +1,51 @@
-# LyricSync
+# VocLyrics
+
+VocLyrics is available as both a stereo passthrough VST3 and a standalone desktop app. Both keep lyrics and a setlist and serve a lyrics-only browser view to devices on the same local network. In standalone mode, choose **Desktop host** or any connected device in **Shared scroll controller**; scrolling from the selected controller is synchronized to every connected screen. The browser resources are embedded in the app. Internet access is used only by the GitHub Actions workflow to fetch pinned build dependencies.
+
+## Features
+
+- Stereo input/output is passed through without changing samples. The audio callback only reads JUCE playhead values and writes scalar atomics; networking and model locks stay on other threads.
+- LRC and untimed lyric lines, section tags, import/export, live tagging, undo and manual timestamp editing.
+- Multiple songs, selection, duplicate, delete, rename (double-click a row), drag reorder, previous/next, active and next song display.
+- Project state contains setlist, lyrics, song marker metadata and server port.
+- Starts an embedded HTTP/WebSocket server on the LAN, searches subsequent ports when a port is busy, embeds the remote web app, and limits connections to eight.
+- Per-device output queues replace stale messages. A slow client has an independent sender thread and cannot block the audio callback or other device queues.
+- Browser display modes, local clock, proportional text, wake lock, reconnect, latency estimation and per-browser sync nudge are available behind the gear control.
+- A ninth device is refused and shown a friendly maximum-device message by the browser view.
+- The host editor switches to a large lyrics display while the DAW transport is playing.
+- The standalone desktop app runs without a DAW; choose any connected remote as the shared scroll controller, or keep control on the desktop and use **Share scroll** plus the shared-line controls.
+
+The host plug-in API exposes playhead position to effects, but JUCE does not provide a portable command for a plug-in to seek the host. Selecting a setlist row selects the song; hosts that expose a supported marker-jump integration can be connected later. `Song::startSeconds` is retained in project state for that integration.
+
+## Build and install from GitHub Actions
+
+1. Create a new GitHub repository. Unzip this project and upload the files at the ZIP root to the repository root (including `.github/workflows/build.yml`).
+2. Open the repository's **Actions** tab. Select **Build** and choose **Run workflow**, or push a commit to start it automatically.
+3. When both jobs finish, open the workflow run and download `VocLyrics-VST3-Windows` / `VocLyrics-VST3-macOS-universal` for the plug-in, or `VocLyrics-Standalone-Windows` / `VocLyrics-Standalone-macOS-universal` for the app, from **Artifacts**.
+4. Install the VST3 bundle:
+   - Windows: copy `VocLyrics.vst3` to `C:\Program Files\Common Files\VST3\`.
+   - macOS: copy `VocLyrics.vst3` to `/Library/Audio/Plug-Ins/VST3/`, then run `xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/VST3/VocLyrics.vst3` in Terminal if macOS blocks the downloaded build.
+   - Rescan VST3 plug-ins in your DAW and insert VocLyrics on the vocal track.
+5. Allow the DAW or VocLyrics through the operating-system firewall on first run. Phones and tablets must be on the same Wi-Fi/LAN as the host. The plug-in's right panel shows the address and QR code to open.
+
+To use the standalone app, download and unzip the matching standalone artifact, then launch `VocLyrics.exe` on Windows or `VocLyrics.app` on macOS. If macOS blocks it, run `xattr -dr com.apple.quarantine /path/to/VocLyrics.app` in Terminal. Allow VocLyrics through the firewall when prompted. Open the address/QR code shown in the app on the connected devices. In **Shared scroll controller**, select **Desktop host** or one of the connected devices; then enable **Share scroll** and use the shared-line buttons or click a lyric line on desktop, or swipe/scroll on the selected remote. All connected lyric screens follow that controller.
+
+The workflow uses JUCE 9.0.3, CivetWeb v1.16 at a pinned upstream commit containing its URI parser security fix, and Nayuki QR Code generator v1.8.0, pinned with CMake FetchContent. Windows builds use the Visual Studio toolchain on `windows-latest`; macOS builds are universal arm64 and x86_64 on `macos-latest`. The workflow runs the parser, tagging, interpolation, and eight-client WebSocket tests before uploading each plug-in artifact.
+
+## Project layout
+
+```text
+CMakeLists.txt
+Source/
+  PluginProcessor.*  PluginEditor.*
+  Lyrics/            LRC parser, song/setlist models, live tagger
+  Network/           LAN server, address helpers, QR, sync clock
+  UI/                Setlist, lyric editor, display and remote panels
+WebRemote/           Embedded browser client
+Tests/               Parser, tagging, sync and WebSocket tests
+.github/workflows/   Windows and universal macOS builds
+```
+
+## If an Actions build fails
+
+Copy the failing job's full error log (including the first compiler or CMake error) into the VocLyrics chat. The source can then be corrected against the actual Windows or macOS toolchain diagnostic, and the workflow can be rerun until it is green.

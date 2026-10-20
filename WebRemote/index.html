@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#090c11">
+  <title>VocLyrics</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <main id="screen" aria-live="polite">
+    <div id="connection" aria-label="Connection status"><i></i><span>Connecting</span></div>
+    <header id="song"></header>
+    <section id="lyrics" class="scrolling"></section>
+    <footer><span id="next-song"></span><time id="clock"></time></footer>
+    <button id="gear" aria-label="Display settings">⚙</button>
+    <aside id="settings" class="hidden">
+      <label>Display style<select id="style"><option value="single">Single Line</option><option value="scrolling">Scrolling</option><option value="teleprompter">Teleprompter</option></select></label>
+      <label class="check"><input type="checkbox" id="proportional"> Proportional text</label>
+      <label class="check"><input type="checkbox" id="show-clock"> Show clock</label>
+      <label>Sync nudge <span id="nudge-value">0 ms</span><div class="nudge"><button data-nudge="-50">− 50 ms</button><button data-nudge="reset">Reset</button><button data-nudge="50">+ 50 ms</button></div></label>
+      <button id="keep-awake">Keep screen awake</button>
+    </aside>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

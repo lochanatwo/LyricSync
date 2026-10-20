@@ -1,0 +1,157 @@
+#include "RemotePanel.h"
+#include "Network/NetworkUtils.h"
+#include "Network/QrCode.h"
+#include <algorithm>
+#include <limits>
+
+RemotePanel::RemotePanel(VocLyricsAudioProcessor& p) : processor(p), deviceList(*this)
+{
+    addAndMakeVisible(enabled);
+    addAndMakeVisible(address);
+    addAndMakeVisible(portLabel);
+    addAndMakeVisible(interfaceChoice);
+    addAndMakeVisible(controllerLabel);
+    addAndMakeVisible(controllerChoice);
+    addAndMakeVisible(port);
+    addAndMakeVisible(applyPort);
+    viewport.setViewedComponent(&deviceList, false);
+    viewport.setScrollBarsShown(true, false);
+    addAndMakeVisible(viewport);
+    enabled.setToggleState(true, juce::dontSendNotification);
+    enabled.onClick = [this]
+    {
+        if (enabled.getToggleState()) processor.getServer().start(port.getText().getIntValue());
+        else processor.getServer().stop();
+        repaint();
+    };
+    address.setJustificationType(juce::Justification::centred);
+    address.setFont(juce::FontOptions(16.0f, juce::Font::bold));
+    const auto addresses = voclyrics::NetworkUtils::localIPv4Addresses();
+    for (std::size_t i = 0; i < addresses.size(); ++i)
+        interfaceChoice.addItem(addresses[i], static_cast<int>(i + 1));
+    if (! addresses.empty()) interfaceChoice.setSelectedId(1, juce::dontSendNotification);
+    interfaceChoice.onChange = [this] { refreshDevices(); };
+    controllerLabel.setText("Shared scroll controller", juce::dontSendNotification);
+    controllerChoice.onChange = [this]
+    {
+        const auto selected = controllerChoice.getSelectedId();
+        processor.getServer().setScrollController(selected <= 1 ? 0 : selected - 1);
+    };
+    portLabel.setText("Port", juce::dontSendNotification);
+    port.setInputRestrictions(5, "0123456789");
+    port.setText("8080", juce::dontSendNotification);
+    applyPort.onClick = [this]
+    {
+        processor.getServer().stop();
+        processor.getServer().start(port.getText().getIntValue());
+        enabled.setToggleState(processor.getServer().isRunning(), juce::dontSendNotification);
+        repaint();
+    };
+    startTimerHz(2);
+    refreshDevices();
+}
+void RemotePanel::paint(juce::Graphics& g)
+{
+    g.fillAll(juce::Colour(0xff151a22));
+    g.setColour(juce::Colour(0xff8793a3));
+    g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+    g.drawText("REMOTE DISPLAY", 12, 10, getWidth() - 24, 22, juce::Justification::centredLeft);
+    const auto selectedAddress = interfaceChoice.getText().isNotEmpty()
+        ? interfaceChoice.getText() : voclyrics::NetworkUtils::preferredIPv4Address();
+    const auto url = processor.getServer().isRunning()
+        ? juce::String("http://") + selectedAddress + ":" + juce::String(processor.getServer().port())
+        : juce::String("Server is off");
+    if (processor.getServer().isRunning())
+        voclyrics::QrCode::draw(g, juce::Rectangle<float>(getWidth() * 0.5f - 65.0f, 62.0f, 130.0f, 130.0f), url);
+    g.setColour(juce::Colour(0xffe6edf5));
+    g.setFont(juce::FontOptions(14.0f, juce::Font::bold));
+    g.drawFittedText(url, 8, 194, getWidth() - 16, 25, juce::Justification::centred, 1);
+    g.setColour(juce::Colour(0xff8793a3));
+    g.setFont(juce::FontOptions(12.0f));
+    g.drawText(juce::String("DEVICES  ") + juce::String(static_cast<int>(currentDevices.size())) + " / 8", 12, 326, getWidth() - 24, 22, juce::Justification::centredLeft);
+}
+void RemotePanel::resized()
+{
+    enabled.setBounds(10, 38, getWidth() - 20, 28);
+    address.setBounds(8, 220, getWidth() - 16, 23);
+    interfaceChoice.setBounds(8, 246, getWidth() - 16, 26);
+    controllerLabel.setBounds(8, 276, getWidth() - 16, 18);
+    controllerChoice.setBounds(8, 294, getWidth() - 16, 26);
+    viewport.setBounds(8, 350, getWidth() - 16, juce::jmax(60, getHeight() - 414));
+    portLabel.setBounds(12, getHeight() - 55, 44, 26);
+    port.setBounds(58, getHeight() - 55, 70, 26);
+    applyPort.setBounds(134, getHeight() - 55, getWidth() - 146, 26);
+}
+void RemotePanel::timerCallback() { refreshDevices(); }
+void RemotePanel::refreshDevices()
+{
+    const auto devices = processor.getServer().devices();
+    auto devicesChanged = devices.size() != currentDevices.size();
+    if (! devicesChanged)
+        for (std::size_t i = 0; i < devices.size(); ++i)
+            if (devices[i].id != currentDevices[i].id || devices[i].name != currentDevices[i].name
+                || devices[i].ipAddress != currentDevices[i].ipAddress)
+            { devicesChanged = true; break; }
+    currentDevices = devices;
+    auto controllerId = processor.getServer().scrollController();
+    const auto controllerConnected = controllerId == 0 || std::any_of(currentDevices.begin(), currentDevices.end(),
+        [controllerId](const auto& device) { return device.id == controllerId; });
+    if (! controllerConnected)
+    {
+        processor.getServer().setScrollController(0);
+        controllerId = 0;
+        devicesChanged = true;
+    }
+    const auto wantedController = controllerId == 0 ? 1 : controllerId + 1;
+    if (devicesChanged || controllerChoice.getSelectedId() != wantedController)
+    {
+        controllerChoice.clear(juce::dontSendNotification);
+        controllerChoice.addItem("Desktop host", 1);
+        for (const auto& device : currentDevices)
+            controllerChoice.addItem(juce::String(device.name.c_str()) + " (" + juce::String(device.ipAddress.c_str()) + ")",
+                                     device.id + 1);
+        controllerChoice.setSelectedId(wantedController, juce::dontSendNotification);
+    }
+    const auto ip = interfaceChoice.getText().isNotEmpty() ? interfaceChoice.getText() : voclyrics::NetworkUtils::preferredIPv4Address();
+    const auto serverText = processor.getServer().isRunning()
+        ? juce::String("Server on · ") + ip + ":" + juce::String(processor.getServer().port())
+        : juce::String("Server stopped");
+    address.setText(serverText,
+                    juce::dontSendNotification);
+    if (processor.getServer().port() > 0) port.setText(juce::String(processor.getServer().port()), juce::dontSendNotification);
+    deviceList.setSize(viewport.getWidth(), static_cast<int>(currentDevices.size()) * 70);
+    deviceList.repaint();
+    repaint();
+}
+
+void RemotePanel::DeviceList::paint(juce::Graphics& g)
+{
+    int y = 2;
+    for (const auto& device : parent.currentDevices)
+    {
+        const auto row = juce::Rectangle<int>(2, y, getWidth() - 4, 64);
+        g.setColour(juce::Colour(0xff202834));
+        g.fillRoundedRectangle(row.toFloat(), 7.0f);
+        g.setColour(juce::Colour(0xffe6edf5));
+        g.setFont(juce::FontOptions(12.0f, juce::Font::bold));
+        g.drawFittedText(juce::String(device.name.c_str()) + "  " + juce::String(device.ipAddress.c_str()),
+                         row.reduced(7, 3).removeFromTop(20), juce::Justification::centredLeft, 1);
+        g.setColour(juce::Colour(0xff6ee7b7));
+        g.setFont(juce::FontOptions(11.0f));
+        const auto actions = row.withTrimmedTop(31).reduced(7, 0);
+        g.drawFittedText("−50     reset     +50    Disconnect", actions, juce::Justification::centred, 1);
+        y += 70;
+    }
+}
+
+void RemotePanel::DeviceList::mouseDown(const juce::MouseEvent& event)
+{
+    const auto row = event.y / 70;
+    if (row < 0 || row >= static_cast<int>(parent.currentDevices.size())) return;
+    const auto& device = parent.currentDevices[static_cast<std::size_t>(row)];
+    const auto x = event.x;
+    if (x < getWidth() * 0.25) parent.processor.getServer().nudgeDevice(device.id, -50);
+    else if (x < getWidth() * 0.46) parent.processor.getServer().nudgeDevice(device.id, std::numeric_limits<int>::min());
+    else if (x < getWidth() * 0.64) parent.processor.getServer().nudgeDevice(device.id, 50);
+    else parent.processor.getServer().disconnectDevice(device.id);
+}
