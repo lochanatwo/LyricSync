@@ -1,5 +1,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Lyrics/LiveTagger.h"
 
 #include <cmath>
 #include <utility>
@@ -277,7 +278,7 @@ void VocLyricsAudioProcessor::getStateInformation(juce::MemoryBlock& destination
         juce::ValueTree child("Song");
         child.setProperty("id", juce::String(song.id.c_str()), nullptr);
         child.setProperty("title", juce::String(song.title.c_str()), nullptr);
-        child.setProperty("lyrics", voclyrics::LrcParser::serialize(song.lyrics), nullptr);
+        child.setProperty("lyrics", juce::String(voclyrics::LrcParser::serialize(song.lyrics)), nullptr);
         child.setProperty("start", song.startSeconds, nullptr);
         child.setProperty("autoAdvance", song.autoAdvance, nullptr);
         root.addChild(child, -1, nullptr);
@@ -320,3 +321,4 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new VocLyricsAudioProcessor();
 }
+

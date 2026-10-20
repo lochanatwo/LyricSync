@@ -418,13 +418,7 @@ std::string ServerManager::addressFor(const mg_connection* connection)
 {
     const auto* info = mg_get_request_info(connection);
     if (info == nullptr) return "LAN device";
-    auto address = static_cast<std::uint32_t>(info->remote_addr);
-#if JUCE_LITTLE_ENDIAN
-    address = ((address & 0x000000ffu) << 24) | ((address & 0x0000ff00u) << 8)
-            | ((address & 0x00ff0000u) >> 8) | ((address & 0xff000000u) >> 24);
-#endif
-    return std::to_string((address >> 24) & 0xff) + "." + std::to_string((address >> 16) & 0xff)
-         + "." + std::to_string((address >> 8) & 0xff) + "." + std::to_string(address & 0xff);
+    return info->remote_addr[0] != '\0' ? info->remote_addr : "LAN device";
 }
 void ServerManager::enqueueLatest(const std::shared_ptr<Client>& client, const std::string& payload)
 {
@@ -488,3 +482,4 @@ void ServerManager::broadcastLoop()
     }
 }
 }
+

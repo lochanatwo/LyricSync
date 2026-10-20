@@ -122,13 +122,19 @@ void SetlistPanel::mouseDoubleClick(const juce::MouseEvent& event)
     const auto row = (event.y - 44) / 54;
     const auto model = processor.getSetlistSnapshot();
     if (row < 0 || row >= static_cast<int>(model.songs().size())) return;
-    juce::AlertWindow prompt("Rename song", "Enter a song title", juce::AlertWindow::NoIcon);
-    prompt.addTextEditor("title", model.songs()[static_cast<std::size_t>(row)].title);
-    prompt.addButton("Rename", 1);
-    prompt.addButton("Cancel", 0);
-    if (prompt.runModalLoop() == 1)
-    {
-        processor.renameSong(row, prompt.getTextEditorContents("title"));
-        refresh();
-    }
+    auto* prompt = new juce::AlertWindow("Rename song", "Enter a song title", juce::AlertWindow::NoIcon);
+    prompt->addTextEditor("title", model.songs()[static_cast<std::size_t>(row)].title);
+    prompt->addButton("Rename", 1);
+    prompt->addButton("Cancel", 0);
+    const juce::Component::SafePointer<SetlistPanel> safe(this);
+    prompt->enterModalState(true, juce::ModalCallbackFunction::create(
+        [safe, row, prompt](int result)
+        {
+            if (safe != nullptr && result == 1)
+            {
+                safe->processor.renameSong(row, prompt->getTextEditorContents("title"));
+                safe->refresh();
+            }
+        }), true);
 }
+

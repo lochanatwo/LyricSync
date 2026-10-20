@@ -63,10 +63,11 @@ void DisplayView::timerCallback()
                 const auto& line = song->lyrics[static_cast<std::size_t>(i)];
                 if (line.isSection) continue;
                 if (displayText.isNotEmpty()) displayText += "\n";
-                displayText += line.text;
+                displayText += juce::String(line.text);
             }
         }
     }
     clockText = juce::Time::getCurrentTime().formatted("%H:%M");
     repaint();
 }
+

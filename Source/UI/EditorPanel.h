@@ -19,4 +19,6 @@ private:
     juce::ToggleButton shareScroll { "Share scroll" };
     std::unique_ptr<juce::FileChooser> chooser;
     void moveSection(int direction);
+    void moveCaretLine(int direction);
 };
+
