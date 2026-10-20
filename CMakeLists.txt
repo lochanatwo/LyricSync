@@ -10,7 +10,7 @@ FetchContent_Declare(JUCE
 FetchContent_Declare(CivetWeb
     GIT_REPOSITORY https://github.com/civetweb/civetweb.git
     # Exact upstream commit containing the v1.16 URI parser security fix.
-    GIT_TAG d5321963b1d0bc953101de91f8588bf83db73bf5
+    GIT_TAG d7ba35bbb649209c66e582d5a0244ba988a15159
     GIT_SHALLOW TRUE)
 FetchContent_Declare(qrcodegen
     GIT_REPOSITORY https://github.com/nayuki/QR-Code-generator.git
@@ -97,3 +97,4 @@ if(BUILD_TESTING)
         juce::juce_recommended_warning_flags)
     add_test(NAME VocLyricsTests COMMAND VocLyricsTests)
 endif()
+
