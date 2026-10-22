@@ -46,12 +46,13 @@ void DisplayView::timerCallback()
     titleText = song != nullptr ? song->title : "VocLyrics";
     transposeText = juce::String("TRANSPOSED BY: ") + juce::String(processor.getTransposeSemitones());
     displayText.clear();
-    if (song != nullptr)
+    if (song != nullptr && ! song->lyrics.empty())
     {
         auto position = processor.getTransportSnapshot().positionSeconds;
         if (song->startSeconds >= 0.0) position -= song->startSeconds;
         auto active = voclyrics::activeLineAt(*song, position);
         if (active < 0) active = 0;
+        active = juce::jlimit(0, static_cast<int>(song->lyrics.size()) - 1, active);
         const auto mode = style.getSelectedId();
         if (mode == 1)
         {
