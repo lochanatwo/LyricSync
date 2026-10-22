@@ -2,6 +2,9 @@
   'use strict';
   const $ = id => document.getElementById(id);
   const screen = $('screen'), lyrics = $('lyrics'), upNext = $('up-next'), settings = $('settings');
+  const isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  const isStandalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  if(isStandalone)document.documentElement.classList.add('standalone');
   const roles = ['Main Singer','Backup Singer','Main Guitar','Rythm Guitar','Drummer','Percussionist','Bass','Keys'];
   const key = 'voclyrics.remote.v2';
   const defaults = {proportional:true, clock:false, nudge:0, transpose:0, role:''};
@@ -122,7 +125,8 @@
   const showFull=()=>{const full=document.createElement('div');full.id='full';full.textContent='VocLyrics is already serving 8 devices. Ask the host to disconnect one, then refresh.';document.body.appendChild(full);};
   const requestWakeLock=async()=>{try{if('wakeLock'in navigator)wakeLock=await navigator.wakeLock.request('screen');}catch(_){}};
   $('gear').addEventListener('click',()=>settings.classList.toggle('hidden'));
-  $('fullscreen').addEventListener('click',async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();}catch(_){}});
+  $('fullscreen').addEventListener('click',async()=>{if(isIOS&&!isStandalone){$('ios-fullscreen-help').classList.remove('hidden');return;}try{if(!document.fullscreenElement&&document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen();else if(document.fullscreenElement&&document.exitFullscreen)await document.exitFullscreen();}catch(_){$('ios-fullscreen-help').classList.remove('hidden');}});
+  $('ios-help-close').addEventListener('click',()=>$('ios-fullscreen-help').classList.add('hidden'));
   document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'×':'⛶';$('fullscreen').setAttribute('aria-label',document.fullscreenElement?'Exit fullscreen':'Enter fullscreen');setTimeout(fitSheet,80);});
   window.addEventListener('resize',()=>setTimeout(fitSheet,60));
   $('scroll-up').addEventListener('click',()=>controlScroll(-1)); $('scroll-down').addEventListener('click',()=>controlScroll(1));

@@ -40,7 +40,7 @@ target_compile_features(qrcodegen PUBLIC cxx_std_11)
 juce_add_binary_data(VocLyricsWeb
     NAMESPACE VocLyricsWeb
     HEADER_NAME VocLyricsWebData.h
-    SOURCES WebRemote/index.html WebRemote/app.js WebRemote/style.css)
+    SOURCES WebRemote/index.html WebRemote/app.js WebRemote/style.css WebRemote/manifest.json)
 
 juce_add_plugin(VocLyrics
     COMPANY_NAME "VocLyrics"

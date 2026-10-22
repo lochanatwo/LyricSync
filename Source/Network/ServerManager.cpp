@@ -102,6 +102,7 @@ bool ServerManager::start(int preferredPort)
             mg_set_request_handler(context, "/index.html", &ServerManager::serveIndex, this);
             mg_set_request_handler(context, "/app.js", &ServerManager::serveScript, this);
             mg_set_request_handler(context, "/style.css", &ServerManager::serveStyle, this);
+            mg_set_request_handler(context, "/manifest.json", &ServerManager::serveManifest, this);
             mg_set_request_handler(context, "/capacity", &ServerManager::serveCapacity, this);
             mg_set_websocket_handler(context, "/ws", &ServerManager::websocketConnect,
                                      &ServerManager::websocketReady, &ServerManager::websocketData,
@@ -255,6 +256,11 @@ int ServerManager::serveScript(mg_connection* connection, void*)
 int ServerManager::serveStyle(mg_connection* connection, void*)
 {
     return sendAsset(connection, "text/css; charset=utf-8", VocLyricsWeb::style_css, VocLyricsWeb::style_cssSize);
+}
+int ServerManager::serveManifest(mg_connection* connection, void*)
+{
+    return sendAsset(connection, "application/manifest+json; charset=utf-8",
+                     VocLyricsWeb::manifest_json, VocLyricsWeb::manifest_jsonSize);
 }
 int ServerManager::serveCapacity(mg_connection* connection, void* data)
 {

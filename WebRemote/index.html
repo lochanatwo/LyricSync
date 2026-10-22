@@ -4,7 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#080b12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="VocLyrics">
   <title>VocLyrics Live</title>
+  <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
@@ -45,6 +49,9 @@
   </main>
   <section id="role-setup" class="role-setup hidden" aria-modal="true">
     <div class="role-dialog"><span class="logo-mark"></span><p>WELCOME TO VOCLYRICS</p><h1>What’s your role?</h1><small>This labels your screen for the host.</small><select id="role-first"></select><button id="role-confirm">Join the band</button></div>
+  </section>
+  <section id="ios-fullscreen-help" class="ios-help hidden" aria-modal="true">
+    <div class="ios-dialog"><h2>Fullscreen on iPhone</h2><p>Apple opens local web apps fullscreen from the Home Screen.</p><ol><li>Tap the browser’s <strong>Share</strong> button.</li><li>Choose <strong>Add to Home Screen</strong>.</li><li>Open <strong>VocLyrics</strong> from your Home Screen.</li></ol><button id="ios-help-close">Got it</button></div>
   </section>
   <script src="/app.js"></script>
 </body>
