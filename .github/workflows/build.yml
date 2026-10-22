@@ -14,22 +14,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Configure
-        run: cmake -S . -B build -DBUILD_TESTING=ON
+        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DBUILD_TESTING=ON
       - name: Build plugin and tests
         run: cmake --build build --config Release --target VocLyrics_VST3 VocLyrics_Standalone VocLyricsTests --parallel
       - name: Run unit tests
         run: ctest --test-dir build -C Release --output-on-failure
-      - name: Upload Windows VST3
+      - name: Package Windows app and VST3 together
+        shell: pwsh
+        run: |
+          $stage = Join-Path $env:RUNNER_TEMP 'VocLyrics-Windows'
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'Standalone') | Out-Null
+          New-Item -ItemType Directory -Force -Path (Join-Path $stage 'Plugins') | Out-Null
+          Copy-Item 'build/VocLyrics_artefacts/Release/Standalone/VocLyrics.exe' (Join-Path $stage 'Standalone/VocLyrics.exe')
+          Copy-Item 'build/VocLyrics_artefacts/Release/VST3/VocLyrics.vst3' (Join-Path $stage 'Plugins/VocLyrics.vst3') -Recurse
+          Copy-Item 'README.md' (Join-Path $stage 'README.txt')
+          Compress-Archive -Path $stage -DestinationPath 'VocLyrics-Windows.zip' -Force
+      - name: Upload all-in-one Windows package
         uses: actions/upload-artifact@v4
         with:
-          name: VocLyrics-VST3-Windows
-          path: build/VocLyrics_artefacts/Release/VST3/VocLyrics.vst3
-          if-no-files-found: error
-      - name: Upload Windows standalone app
-        uses: actions/upload-artifact@v4
-        with:
-          name: VocLyrics-Standalone-Windows
-          path: build/VocLyrics_artefacts/Release/Standalone/VocLyrics.exe
+          name: VocLyrics-All-in-One-Windows
+          path: VocLyrics-Windows.zip
           if-no-files-found: error
 
   macos:
@@ -47,15 +51,16 @@ jobs:
         run: cmake --build build --config Release --target VocLyrics_VST3 VocLyrics_Standalone VocLyricsTests --parallel
       - name: Run unit tests
         run: ctest --test-dir build -C Release --output-on-failure
-      - name: Upload macOS VST3
+      - name: Package macOS app and VST3 together
+        run: |
+          mkdir -p "$RUNNER_TEMP/VocLyrics-macOS/Standalone" "$RUNNER_TEMP/VocLyrics-macOS/Plugins"
+          cp -R build/VocLyrics_artefacts/Release/Standalone/VocLyrics.app "$RUNNER_TEMP/VocLyrics-macOS/Standalone/"
+          cp -R build/VocLyrics_artefacts/Release/VST3/VocLyrics.vst3 "$RUNNER_TEMP/VocLyrics-macOS/Plugins/"
+          cp README.md "$RUNNER_TEMP/VocLyrics-macOS/README.txt"
+          ditto -c -k --sequesterRsrc --keepParent "$RUNNER_TEMP/VocLyrics-macOS" VocLyrics-macOS.zip
+      - name: Upload all-in-one macOS package
         uses: actions/upload-artifact@v4
         with:
-          name: VocLyrics-VST3-macOS-universal
-          path: build/VocLyrics_artefacts/Release/VST3/VocLyrics.vst3
-          if-no-files-found: error
-      - name: Upload macOS standalone app
-        uses: actions/upload-artifact@v4
-        with:
-          name: VocLyrics-Standalone-macOS-universal
-          path: build/VocLyrics_artefacts/Release/Standalone/VocLyrics.app
+          name: VocLyrics-All-in-One-macOS-universal
+          path: VocLyrics-macOS.zip
           if-no-files-found: error
