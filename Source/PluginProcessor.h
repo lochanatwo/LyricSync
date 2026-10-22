@@ -73,6 +73,8 @@ public:
     juce::String getHostRole() const;
     void setHostRole(const juce::String& role);
     int getSharedScrollLine() const { return server.scrollLine(); }
+    bool hostControlsSharedScroll() const { return server.scrollController() == 0; }
+    void moveSharedScrollLine(int direction);
 
 private:
     void publishTransport() noexcept;

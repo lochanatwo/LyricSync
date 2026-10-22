@@ -30,13 +30,33 @@
     screen.classList.toggle('fit-text',prefs.proportional);
   };
   const position = () => !state ? 0 : state.position + (state.playing ? Math.max(0,performance.now()+hostOffset+prefs.nudge-state.hostMs)/1000 : 0);
-  const lyricIndices = () => rows.map((row,index)=>row.section?-1:index).filter(index=>index>=0);
+  const isChordOnly = text => {
+    const tokens=text.trim().split(/\s+/).filter(Boolean); if(!tokens.length)return false;
+    return tokens.every(token=>/^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:[+\-()]|\/[A-G](?:#|b)?)*$/i.test(token));
+  };
+  const lyricBlocks = () => {
+    const result=[];
+    for(let index=0;index<rows.length;index+=1){
+      if(rows[index].section)continue;
+      if(isChordOnly(rows[index].text)&&index+1<rows.length&&!rows[index+1].section){
+        result.push({index,chord:rows[index].text,text:rows[index+1].text}); index+=1;
+      }else result.push({index,chord:'',text:rows[index].text});
+    }
+    return result;
+  };
+  const appendBlock = (parent,block,preview) => {
+    const wrapper=document.createElement('div'); wrapper.className=preview?'lyric-block preview-block':'lyric-block';
+    const chord=document.createElement('div'); chord.className='chord-row'; chord.textContent=block.chord||'\u00a0';
+    const text=document.createElement('div'); text.className=preview?'lyric-row preview-line':'lyric-row'; text.textContent=block.text;
+    wrapper.append(chord,text); parent.appendChild(wrapper);
+  };
   const renderRows = active => {
     lyrics.replaceChildren(); upNext.replaceChildren();
-    const indices=lyricIndices(); if (!indices.length) return;
-    let start=indices.findIndex(index=>index>=active); if(start<0) start=Math.max(0,indices.length-1);
-    indices.slice(start,start+2).forEach(index=>{const el=document.createElement('div');el.className='line';el.textContent=rows[index].text;lyrics.appendChild(el);});
-    indices.slice(start+2,start+4).forEach(index=>{const el=document.createElement('div');el.className='preview-line';el.textContent=rows[index].text;upNext.appendChild(el);});
+    const blocks=lyricBlocks(); if (!blocks.length) return;
+    let start=blocks.findIndex(block=>block.index>=active); if(start<0) start=Math.max(0,blocks.length-1);
+    if(start>0&&blocks[start].index>active)start-=1;
+    blocks.slice(start,start+2).forEach(block=>appendBlock(lyrics,block,false));
+    blocks.slice(start+2,start+4).forEach(block=>appendBlock(upNext,block,true));
   };
   const draw = () => {
     if(state){
@@ -44,10 +64,12 @@
       if(Number.isInteger(state.scrollLine)&&state.scrollLine>=0) active=Math.min(state.scrollLine,Math.max(0,rows.length-1));
       if(active<0) active=rows.findIndex(r=>!r.section);
       $('song').textContent=state.title||'VocLyrics'; $('next-song').textContent=state.next?`Next song: ${state.next}`:'';
+      const canControl=state.controllerId===clientId&&clientId>0;
+      $('scroll-up').disabled=!canControl; $('scroll-down').disabled=!canControl;
       if(active!==lastActive){renderRows(active);lastActive=active;}
     }
     if(prefs.clock)$('clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
-    setTimeout(draw,100);
+    setTimeout(draw,33);
   };
   const setConnection=(ok,message)=>{$('connection').classList.toggle('connected',ok);$('connection span').textContent=message;};
   const connect=()=>{
@@ -62,11 +84,12 @@
     socket.onclose=async()=>{setConnection(false,'Reconnecting');try{const response=await fetch('/capacity',{cache:'no-store'});if(await response.text()==='full'){showFull();return;}}catch(_){}setTimeout(connect,Math.min(6000,500*(2**Math.min(retry++,4))));};
     socket.onerror=()=>setConnection(false,'Connection interrupted');
   };
-  const ping=()=>{if(socket&&socket.readyState===WebSocket.OPEN){socket.send(JSON.stringify({type:'ping',clientSent:performance.now()}));setTimeout(ping,1500);}};
-  const controlScroll=delta=>{if(!state||state.controllerId!==clientId||clientId<=0)return;const indices=lyricIndices();if(!indices.length)return;let pos=indices.findIndex(index=>index>=(state.scrollLine>=0?state.scrollLine:indices[0]));if(pos<0)pos=0;pos=Math.max(0,Math.min(indices.length-1,pos+delta));state.scrollLine=indices[pos];socket.send(JSON.stringify({type:'scroll',line:state.scrollLine}));lastActive=-2;};
+  const ping=()=>{if(socket&&socket.readyState===WebSocket.OPEN){socket.send(JSON.stringify({type:'ping',clientSent:performance.now()}));setTimeout(ping,1000);}};
+  const controlScroll=delta=>{if(!state||state.controllerId!==clientId||clientId<=0)return;const indices=lyricBlocks().map(block=>block.index);if(!indices.length)return;let pos=indices.findIndex(index=>index>=(state.scrollLine>=0?state.scrollLine:indices[0]));if(pos<0)pos=0;pos=Math.max(0,Math.min(indices.length-1,pos+delta));state.scrollLine=indices[pos];socket.send(JSON.stringify({type:'scroll',line:state.scrollLine}));lastActive=-2;};
   const showFull=()=>{const full=document.createElement('div');full.id='full';full.textContent='VocLyrics is already serving 8 devices. Ask the host to disconnect one, then refresh.';document.body.appendChild(full);};
   const requestWakeLock=async()=>{try{if('wakeLock'in navigator)wakeLock=await navigator.wakeLock.request('screen');}catch(_){}};
   $('gear').addEventListener('click',()=>settings.classList.toggle('hidden'));
+  $('scroll-up').addEventListener('click',()=>controlScroll(-1)); $('scroll-down').addEventListener('click',()=>controlScroll(1));
   screen.addEventListener('pointerdown',event=>{pointerY=event.clientY;});
   screen.addEventListener('pointerup',event=>{if(pointerY===null)return;const distance=pointerY-event.clientY;if(Math.abs(distance)>22)controlScroll(distance>0?1:-1);pointerY=null;});
   screen.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)>0)controlScroll(event.deltaY>0?1:-1);},{passive:true});

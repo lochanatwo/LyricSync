@@ -48,8 +48,8 @@ juce_add_plugin(VocLyrics
     PLUGIN_MANUFACTURER_CODE VocL
     PLUGIN_CODE VLy1
     PRODUCT_NAME "VocLyrics"
-    DESCRIPTION "Lyrics teleprompter and DAW transport follower"
-    FORMATS VST3 Standalone
+    DESCRIPTION "Standalone shared lyrics and chords teleprompter"
+    FORMATS Standalone
     IS_SYNTH FALSE
     NEEDS_MIDI_INPUT FALSE
     NEEDS_MIDI_OUTPUT FALSE
@@ -97,4 +97,3 @@ if(BUILD_TESTING)
         juce::juce_recommended_warning_flags)
     add_test(NAME VocLyricsTests COMMAND VocLyricsTests)
 endif()
-

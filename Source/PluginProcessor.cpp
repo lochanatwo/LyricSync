@@ -3,8 +3,32 @@
 #include "Lyrics/LiveTagger.h"
 
 #include <cmath>
+#include <cctype>
+#include <sstream>
 #include <utility>
 #include <vector>
+
+namespace
+{
+bool isChordOnlyLine(const std::string& text)
+{
+    std::istringstream input(text);
+    std::string token;
+    bool found = false;
+    while (input >> token)
+    {
+        found = true;
+        if (token.empty() || token.front() < 'A' || token.front() > 'G') return false;
+        for (std::size_t i = 1; i < token.size(); ++i)
+        {
+            const auto c = token[i];
+            if (! std::isalnum(static_cast<unsigned char>(c)) && c != '#' && c != 'b' && c != '/'
+                && c != '+' && c != '-' && c != '(' && c != ')') return false;
+        }
+    }
+    return found;
+}
+}
 
 VocLyricsAudioProcessor::VocLyricsAudioProcessor()
     : AudioProcessor(BusesProperties()
@@ -12,7 +36,7 @@ VocLyricsAudioProcessor::VocLyricsAudioProcessor()
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true))
 {
     server.start(preferredPort);
-    startTimerHz(10);
+    startTimerHz(20);
 }
 
 void VocLyricsAudioProcessor::prepareToPlay(double, int)
@@ -114,6 +138,31 @@ void VocLyricsAudioProcessor::setSharedScrollLine(int line)
 {
     const auto bounded = juce::jmax(-1, line);
     if (server.scrollController() == 0) server.setScrollLine(bounded);
+}
+
+void VocLyricsAudioProcessor::moveSharedScrollLine(int direction)
+{
+    if (server.scrollController() != 0) return;
+    const juce::ScopedLock lock(modelLock);
+    const auto* song = setlist.activeSong();
+    if (song == nullptr || song->lyrics.empty()) return;
+    std::vector<int> starts;
+    for (int i = 0; i < static_cast<int>(song->lyrics.size()); ++i)
+    {
+        if (song->lyrics[static_cast<std::size_t>(i)].isSection) continue;
+        starts.push_back(i);
+        if (isChordOnlyLine(song->lyrics[static_cast<std::size_t>(i)].text)
+            && i + 1 < static_cast<int>(song->lyrics.size())
+            && ! song->lyrics[static_cast<std::size_t>(i + 1)].isSection)
+            ++i;
+    }
+    if (starts.empty()) return;
+    const auto current = server.scrollLine();
+    auto position = 0;
+    for (int i = 0; i < static_cast<int>(starts.size()); ++i)
+        if (starts[static_cast<std::size_t>(i)] <= current) position = i;
+    position = juce::jlimit(0, static_cast<int>(starts.size()) - 1, position + (direction < 0 ? -1 : 1));
+    server.setScrollLine(starts[static_cast<std::size_t>(position)]);
 }
 
 void VocLyricsAudioProcessor::selectSong(int index)

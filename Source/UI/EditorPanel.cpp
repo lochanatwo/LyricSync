@@ -36,6 +36,8 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
     lyrics.setReturnKeyStartsNewLine(true);
     lyrics.setFont(juce::FontOptions(19.0f));
     lyrics.setScrollbarsShown(true);
+    lyrics.setTextToShowWhenEmpty("Paste lyrics here. Put chord names on the line above each lyric.",
+                                  juce::Colour(0xff728096));
     lyrics.onTextChange = [this] { processor.setLyricsText(lyrics.getText()); };
     for (auto* button : {&import, &exportFile, &previousSection, &nextSection, &previousLine, &nextLine})
         addAndMakeVisible(*button);

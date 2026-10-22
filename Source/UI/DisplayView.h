@@ -2,6 +2,7 @@
 
 #include "PluginProcessor.h"
 #include <JuceHeader.h>
+#include <array>
 
 class DisplayView final : public juce::Component, private juce::Timer
 {
@@ -13,5 +14,8 @@ private:
     void timerCallback() override;
     VocLyricsAudioProcessor& processor;
     juce::ToggleButton proportional { "Proportional text" }, clock { "Clock" };
-    juce::String titleText, currentText, upcomingText, clockText, transposeText, roleText;
+    juce::TextButton upButton { juce::String::charToString(0x2191) };
+    juce::TextButton downButton { juce::String::charToString(0x2193) };
+    std::array<juce::String, 2> currentChords, currentLyrics, upcomingChords, upcomingLyrics;
+    juce::String titleText, clockText, transposeText, roleText;
 };
