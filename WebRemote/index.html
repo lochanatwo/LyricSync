@@ -11,10 +11,12 @@
   <main id="screen" aria-live="polite">
     <div id="connection" aria-label="Connection status"><i></i><span>Connecting</span></div>
     <header id="song"></header>
+    <div id="transpose-status" aria-live="polite">TRANSPOSED BY: 0</div>
     <section id="lyrics" class="scrolling"></section>
     <footer><span id="next-song"></span><time id="clock"></time></footer>
     <button id="gear" aria-label="Display settings">⚙</button>
     <aside id="settings" class="hidden">
+      <label>Transpose by (semitones)<select id="transpose"></select></label>
       <label>Display style<select id="style"><option value="single">Single Line</option><option value="scrolling">Scrolling</option><option value="teleprompter">Teleprompter</option></select></label>
       <label class="check"><input type="checkbox" id="proportional"> Proportional text</label>
       <label class="check"><input type="checkbox" id="show-clock"> Show clock</label>
@@ -25,3 +27,4 @@
   <script src="/app.js"></script>
 </body>
 </html>
+

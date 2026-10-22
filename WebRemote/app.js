@@ -3,9 +3,10 @@
   const $ = id => document.getElementById(id);
   const screen = $('screen'), lyrics = $('lyrics'), settings = $('settings');
   const key = 'voclyrics.remote.v1';
-  const defaults = {style:'scrolling', proportional:false, clock:false, nudge:0};
+  const defaults = {style:'scrolling', proportional:false, clock:false, nudge:0, transpose:0};
   let prefs = {...defaults};
   try { prefs = {...defaults, ...JSON.parse(localStorage.getItem(key) || '{}')}; } catch (_) {}
+  prefs.transpose = Number.isInteger(prefs.transpose) ? Math.max(-12, Math.min(12, prefs.transpose)) : 0;
   let socket, state = null, rows = [], renderedLyrics = null, hostOffset = 0, retry = 0, wakeLock = null, hideTimer, lastActive = -2, clientId = 0, pointerY = null;
   const save = () => localStorage.setItem(key, JSON.stringify(prefs));
   const showControls = () => { screen.classList.add('controls-visible'); clearTimeout(hideTimer); hideTimer = setTimeout(() => { if (settings.classList.contains('hidden')) screen.classList.remove('controls-visible'); }, 3500); };
@@ -21,6 +22,9 @@
     $('style').value = prefs.style; $('proportional').checked = prefs.proportional;
     $('show-clock').checked = prefs.clock; $('clock').style.display = prefs.clock ? '' : 'none';
     $('nudge-value').textContent = `${prefs.nudge} ms`;
+    $('transpose').value = String(prefs.transpose);
+    $('transpose-status').textContent = `TRANSPOSED BY: ${prefs.transpose}`;
+    lastActive = -2;
   };
   const position = () => {
     if (!state) return 0;
@@ -28,10 +32,21 @@
     const elapsed = state.playing ? Math.max(0, now - state.hostMs) / 1000 : 0;
     return state.position + elapsed;
   };
-  const renderRows = () => {
+  const renderRows = active => {
     lyrics.replaceChildren();
-    rows.forEach((row,i) => { if (!row.section) { const el=document.createElement('div'); el.className='line future'; el.textContent=row.text; el.dataset.index=i; lyrics.appendChild(el); } });
-    lastActive = -2;
+    if (active < 0 || active >= rows.length) return;
+    const count = prefs.style === 'single' ? 1 : prefs.style === 'teleprompter' ? 9 : 5;
+    const start = Math.max(0, active - Math.floor(count / 2));
+    const end = Math.min(rows.length, start + count);
+    for (let i = start; i < end; ++i) {
+      const row = rows[i];
+      if (row.section) continue;
+      const el = document.createElement('div');
+      el.className = `line ${i < active ? 'past' : i === active ? 'active' : 'future'}`;
+      el.textContent = row.text;
+      el.dataset.index = i;
+      lyrics.appendChild(el);
+    }
   };
   const draw = () => {
     if (state) {
@@ -45,12 +60,7 @@
       $('song').textContent = state.title || 'VocLyrics';
       $('next-song').textContent = state.next ? `Next: ${state.next}` : '';
       if (active !== lastActive) {
-        lyrics.querySelectorAll('.line').forEach(el => {
-          const index = Number(el.dataset.index);
-          el.className = `line ${index < active ? 'past' : index === active ? 'active' : 'future'}`;
-        });
-        const current = lyrics.querySelector('.active');
-        if (current && prefs.style !== 'single') current.scrollIntoView({block:'center',behavior:'smooth'});
+        renderRows(active);
         lastActive = active;
       }
       if (prefs.proportional) {
@@ -60,7 +70,7 @@
       } else lyrics.style.fontSize = '';
     }
     if (prefs.clock) $('clock').textContent = new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-    setTimeout(draw, 40);
+    setTimeout(draw, 100);
   };
   const setConnection = (ok, message) => { $('connection').classList.toggle('connected', ok); $('connection span').textContent = message; };
   const connect = () => {
@@ -96,16 +106,6 @@
   const requestWakeLock = async () => {
     try {
       if ('wakeLock' in navigator) wakeLock = await navigator.wakeLock.request('screen');
-      else {
-        let video = $('wake-video');
-        if (!video) {
-          video = document.createElement('video'); video.id='wake-video'; video.muted=true; video.loop=true; video.playsInline=true;
-          const canvas=document.createElement('canvas'); canvas.width=2; canvas.height=2;
-          if (canvas.captureStream) video.srcObject=canvas.captureStream(1);
-          document.body.appendChild(video);
-        }
-        if (video.srcObject) await video.play();
-      }
     } catch (_) {}
   };
   $('gear').addEventListener('click', () => { settings.classList.toggle('hidden'); showControls(); });
@@ -117,6 +117,13 @@
     pointerY=null;
   });
   screen.addEventListener('wheel', event => { if (Math.abs(event.deltaY) > 0) controlScroll(event.deltaY > 0 ? 1 : -1); }, {passive:true});
+  $('transpose').innerHTML = Array.from({length:25}, (_,i) => i - 12)
+    .map(value => `<option value="${value}">${value}</option>`).join('');
+  $('transpose').addEventListener('change', e => {
+    const value = Number.parseInt(e.target.value, 10);
+    prefs.transpose = Number.isInteger(value) ? Math.max(-12, Math.min(12, value)) : 0;
+    save(); applyPreferences();
+  });
   $('style').addEventListener('change', e => { prefs.style=e.target.value; save(); applyPreferences(); });
   $('proportional').addEventListener('change', e => { prefs.proportional=e.target.checked; save(); applyPreferences(); });
   $('show-clock').addEventListener('change', e => { prefs.clock=e.target.checked; save(); applyPreferences(); });
@@ -127,3 +134,4 @@
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') requestWakeLock(); });
   applyPreferences(); connect(); requestWakeLock(); draw();
 })();
+

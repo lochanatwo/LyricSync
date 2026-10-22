@@ -31,7 +31,7 @@ RemotePanel::RemotePanel(VocLyricsAudioProcessor& p) : processor(p), deviceList(
         interfaceChoice.addItem(addresses[i], static_cast<int>(i + 1));
     if (! addresses.empty()) interfaceChoice.setSelectedId(1, juce::dontSendNotification);
     interfaceChoice.onChange = [this] { refreshDevices(); };
-    controllerLabel.setText("Shared scroll controller", juce::dontSendNotification);
+    controllerLabel.setText("Scroll permission for everyone", juce::dontSendNotification);
     controllerChoice.onChange = [this]
     {
         const auto selected = controllerChoice.getSelectedId();
@@ -155,3 +155,4 @@ void RemotePanel::DeviceList::mouseDown(const juce::MouseEvent& event)
     else if (x < getWidth() * 0.64) parent.processor.getServer().nudgeDevice(device.id, 50);
     else parent.processor.getServer().disconnectDevice(device.id);
 }
+

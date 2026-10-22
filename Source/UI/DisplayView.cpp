@@ -18,6 +18,9 @@ void DisplayView::paint(juce::Graphics& g)
     g.setColour(juce::Colour(0xff7f8b9a));
     g.setFont(juce::FontOptions(18.0f));
     g.drawText(titleText, 40, 30, getWidth() - 80, 36, juce::Justification::centred);
+    g.setColour(juce::Colour(0xff72e6bb));
+    g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
+    g.drawText(transposeText, 40, 62, getWidth() - 80, 22, juce::Justification::centred);
     g.setColour(juce::Colour(0xfff5f7fa));
     const auto fontSize = proportional.getToggleState() ? juce::jlimit(34.0f, 90.0f, getWidth() * 0.065f) : 58.0f;
     g.setFont(juce::FontOptions(fontSize, juce::Font::bold));
@@ -41,6 +44,7 @@ void DisplayView::timerCallback()
     const auto model = processor.getSetlistSnapshot();
     const auto* song = model.activeSong();
     titleText = song != nullptr ? song->title : "VocLyrics";
+    transposeText = juce::String("TRANSPOSED BY: ") + juce::String(processor.getTransposeSemitones());
     displayText.clear();
     if (song != nullptr)
     {

@@ -65,6 +65,11 @@ public:
     voclyrics::ServerManager& getServer() noexcept { return server; }
     int getActiveIndex() const;
     void setSharedScrollLine(int line);
+    int getTransposeSemitones() const noexcept { return transposeSemitones.load(std::memory_order_relaxed); }
+    void setTransposeSemitones(int semitones) noexcept
+    {
+        transposeSemitones.store(juce::jlimit(-12, 12, semitones), std::memory_order_relaxed);
+    }
 
 private:
     void publishTransport() noexcept;
@@ -77,6 +82,7 @@ private:
     std::atomic<bool> hasPosition { false };
     std::atomic<bool> isPlaying { false };
     std::atomic<bool> isLooping { false };
+    std::atomic<int> transposeSemitones { 0 };
 
     mutable juce::CriticalSection modelLock;
     voclyrics::SetlistModel setlist;
@@ -88,3 +94,4 @@ private:
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VocLyricsAudioProcessor)
 };
+

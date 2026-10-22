@@ -14,5 +14,6 @@ private:
     VocLyricsAudioProcessor& processor;
     juce::ComboBox style;
     juce::ToggleButton proportional { "Proportional text" }, clock { "Clock" };
-    juce::String titleText, displayText, clockText;
+    juce::String titleText, displayText, clockText, transposeText;
 };
+

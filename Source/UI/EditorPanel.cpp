@@ -41,6 +41,19 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
         addAndMakeVisible(*button);
     addAndMakeVisible(lyrics);
     addAndMakeVisible(shareScroll);
+    addAndMakeVisible(transposeStatus);
+    addAndMakeVisible(transposeChoice);
+    transposeStatus.setJustificationType(juce::Justification::centredLeft);
+    for (int semitones = -12; semitones <= 12; ++semitones)
+        transposeChoice.addItem(juce::String(semitones), semitones + 13);
+    transposeChoice.setSelectedId(processor.getTransposeSemitones() + 13, juce::dontSendNotification);
+    transposeStatus.setText(juce::String("TRANSPOSED BY: ") + juce::String(processor.getTransposeSemitones()), juce::dontSendNotification);
+    transposeChoice.onChange = [this]
+    {
+        const auto semitones = transposeChoice.getSelectedId() - 13;
+        processor.setTransposeSemitones(semitones);
+        transposeStatus.setText(juce::String("TRANSPOSED BY: ") + juce::String(processor.getTransposeSemitones()), juce::dontSendNotification);
+    };
     tag.onClick = [this] { processor.tagNextLine(); loadFromProcessor(); };
     undo.onClick = [this] { processor.undoTag(); loadFromProcessor(); };
     previousSection.onClick = [this] { moveSection(-1); };
@@ -93,6 +106,8 @@ void EditorPanel::resized()
     shareScroll.setBounds(sharedControls.removeFromLeft(130).reduced(3));
     previousLine.setBounds(sharedControls.removeFromLeft(125).reduced(3));
     nextLine.setBounds(sharedControls.removeFromLeft(125).reduced(3));
+    transposeStatus.setBounds(sharedControls.removeFromLeft(175).reduced(3));
+    transposeChoice.setBounds(sharedControls.removeFromLeft(100).reduced(3));
     area.removeFromTop(4);
     lyrics.setBounds(area);
 }
@@ -148,3 +163,4 @@ void EditorPanel::loadFromProcessor()
     const auto text = processor.getLyricsText();
     if (lyrics.getText() != text) lyrics.setText(text, false);
 }
+

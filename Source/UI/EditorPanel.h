@@ -17,6 +17,8 @@ private:
     juce::TextButton previousSection { "Prev section" }, nextSection { "Next section" };
     juce::TextButton previousLine { "Shared line −" }, nextLine { "Shared line +" };
     juce::ToggleButton shareScroll { "Share scroll" };
+    juce::Label transposeStatus;
+    juce::ComboBox transposeChoice;
     std::unique_ptr<juce::FileChooser> chooser;
     void moveSection(int direction);
     void moveCaretLine(int direction);

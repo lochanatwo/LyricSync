@@ -10,10 +10,13 @@ VocLyrics is available as both a stereo passthrough VST3 and a standalone deskto
 - Project state contains setlist, lyrics, song marker metadata and server port.
 - Starts an embedded HTTP/WebSocket server on the LAN, searches subsequent ports when a port is busy, embeds the remote web app, and limits connections to eight.
 - Per-device output queues replace stale messages. A slow client has an independent sender thread and cannot block the audio callback or other device queues.
-- Browser display modes, local clock, proportional text, wake lock, reconnect, latency estimation and per-browser sync nudge are available behind the gear control.
+- Each remote device can independently select an integer semitone shift from -12 to +12. Its screen shows `TRANSPOSED BY: N`; the setting stays on that device and does not change other screens. The desktop host has its own transpose selector and status.
+- Browser display modes, local clock, proportional text, supported screen wake lock, reconnect, latency estimation and per-device sync nudge are available behind the gear control.
 - A ninth device is refused and shown a friendly maximum-device message by the browser view.
 - The host editor switches to a large lyrics display while the DAW transport is playing.
-- The standalone desktop app runs without a DAW; choose any connected remote as the shared scroll controller, or keep control on the desktop and use **Share scroll** plus the shared-line controls.
+- The standalone desktop app runs without a DAW; the host chooses **Desktop host** or any connected device as the single shared-scroll controller. Only that selected device can scroll, and all connected displays follow. Remote devices use a small visible lyric window to limit page memory use.
+
+Transpose is a per-screen semitone cue for performers; VocLyrics does not pitch-shift the host's audio. Each screen can select an integer shift from -12 to +12 semitones, and the visible value uses the exact `TRANSPOSED BY: N` format. The host's transpose choice is stored in the project, while each remote device stores its own choice locally.
 
 The host plug-in API exposes playhead position to effects, but JUCE does not provide a portable command for a plug-in to seek the host. Selecting a setlist row selects the song; hosts that expose a supported marker-jump integration can be connected later. `Song::startSeconds` is retained in project state for that integration.
 
@@ -49,3 +52,4 @@ Tests/               Parser, tagging, sync and WebSocket tests
 ## If an Actions build fails
 
 Copy the failing job's full error log (including the first compiler or CMake error) into the VocLyrics chat. The source can then be corrected against the actual Windows or macOS toolchain diagnostic, and the workflow can be rerun until it is green.
+

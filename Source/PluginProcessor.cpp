@@ -12,7 +12,7 @@ VocLyricsAudioProcessor::VocLyricsAudioProcessor()
                          .withOutput("Output", juce::AudioChannelSet::stereo(), true))
 {
     server.start(preferredPort);
-    startTimerHz(30);
+    startTimerHz(10);
 }
 
 void VocLyricsAudioProcessor::prepareToPlay(double, int)
@@ -273,6 +273,7 @@ void VocLyricsAudioProcessor::getStateInformation(juce::MemoryBlock& destination
     juce::ValueTree root("VocLyricsState");
     root.setProperty("active", setlist.activeIndex(), nullptr);
     root.setProperty("port", server.port() > 0 ? server.port() : preferredPort, nullptr);
+    root.setProperty("transposeSemitones", getTransposeSemitones(), nullptr);
     for (const auto& song : setlist.songs())
     {
         juce::ValueTree child("Song");
@@ -314,6 +315,7 @@ void VocLyricsAudioProcessor::setStateInformation(const void* data, int size)
         server.start(preferredPort);
     }
     setlist.replace(std::move(songs), static_cast<int>(root.getProperty("active", 0)));
+    setTransposeSemitones(static_cast<int>(root.getProperty("transposeSemitones", 0)));
     updateServerState();
 }
 
