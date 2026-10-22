@@ -32,12 +32,22 @@
   const position = () => !state ? 0 : state.position + (state.playing ? Math.max(0,performance.now()+hostOffset+prefs.nudge-state.hostMs)/1000 : 0);
   const isChordOnly = text => {
     const tokens=text.trim().split(/\s+/).filter(Boolean); if(!tokens.length)return false;
-    return tokens.every(token=>/^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:[+\-()]|\/[A-G](?:#|b)?)*$/i.test(token));
+    let chords=0;
+    const valid=tokens.every(token=>{
+      const cleaned=token.replace(/^[|:]+|[|:]+$/g,'');
+      if(!cleaned)return true;
+      const chord=/^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:[+\-()]|\/[A-G](?:#|b)?)*$/i.test(cleaned);
+      if(chord)chords+=1;
+      return chord;
+    });
+    return valid&&chords>0;
   };
+  const isDivider = text => /^\s*[-_=—–]{3,}\s*$/.test(text);
   const lyricBlocks = () => {
     const result=[]; let section='';
     for(let index=0;index<rows.length;index+=1){
       if(rows[index].section){section=rows[index].text;continue;}
+      if(isDivider(rows[index].text))continue;
       if(isChordOnly(rows[index].text)&&index+1<rows.length&&!rows[index+1].section){
         result.push({index,chord:rows[index].text,text:rows[index+1].text,section}); index+=1;
       }else result.push({index,chord:'',text:rows[index].text,section});
@@ -52,7 +62,7 @@
   };
   const transposeChord = (token,amount) => {
     if(!amount)return token;
-    let changed=token.replace(/^([A-G])([#b]?)/,(match,root,accidental)=>transposeRoot(root,accidental,amount));
+    let changed=token.replace(/^([|:]*)([A-G])([#b]?)/,(match,bars,root,accidental)=>`${bars}${transposeRoot(root,accidental,amount)}`);
     changed=changed.replace(/\/([A-G])([#b]?)/g,(match,root,accidental)=>`/${transposeRoot(root,accidental,amount)}`);
     return changed;
   };
@@ -63,6 +73,14 @@
     const text=document.createElement('div'); text.className=preview?'lyric-row preview-line':'lyric-row'; text.textContent=block.text;
     wrapper.append(chord,text); parent.appendChild(wrapper);
   };
+  const fitSheet = () => {
+    const card=document.querySelector('.now-card'); if(!card)return;
+    const lines=[...lyrics.querySelectorAll('.chord-row,.lyric-row')]; if(!lines.length)return;
+    const longest=Math.max(8,...lines.map(line=>line.textContent.length));
+    const width=Math.max(180,card.clientWidth-48),height=Math.max(150,card.clientHeight-100);
+    const size=Math.max(14,Math.min(54,Math.floor(width/(longest*.61)),Math.floor(height/6.2)));
+    lyrics.style.fontSize=`${size}px`;
+  };
   const renderRows = active => {
     lyrics.replaceChildren(); upNext.replaceChildren();
     const blocks=lyricBlocks(); if (!blocks.length) return;
@@ -71,6 +89,7 @@
     $('section-label').textContent=(blocks[start].section||'SONG').toUpperCase();
     blocks.slice(start,start+2).forEach(block=>appendBlock(lyrics,block,false));
     blocks.slice(start+2,start+4).forEach(block=>appendBlock(upNext,block,true));
+    requestAnimationFrame(fitSheet);
   };
   const draw = () => {
     if(state){
@@ -103,6 +122,9 @@
   const showFull=()=>{const full=document.createElement('div');full.id='full';full.textContent='VocLyrics is already serving 8 devices. Ask the host to disconnect one, then refresh.';document.body.appendChild(full);};
   const requestWakeLock=async()=>{try{if('wakeLock'in navigator)wakeLock=await navigator.wakeLock.request('screen');}catch(_){}};
   $('gear').addEventListener('click',()=>settings.classList.toggle('hidden'));
+  $('fullscreen').addEventListener('click',async()=>{try{if(!document.fullscreenElement)await document.documentElement.requestFullscreen();else await document.exitFullscreen();}catch(_){}});
+  document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'×':'⛶';$('fullscreen').setAttribute('aria-label',document.fullscreenElement?'Exit fullscreen':'Enter fullscreen');setTimeout(fitSheet,80);});
+  window.addEventListener('resize',()=>setTimeout(fitSheet,60));
   $('scroll-up').addEventListener('click',()=>controlScroll(-1)); $('scroll-down').addEventListener('click',()=>controlScroll(1));
   screen.addEventListener('pointerdown',event=>{pointerY=event.clientY;});
   screen.addEventListener('pointerup',event=>{if(pointerY===null)return;const distance=pointerY-event.clientY;if(Math.abs(distance)>22)controlScroll(distance>0?1:-1);pointerY=null;});
