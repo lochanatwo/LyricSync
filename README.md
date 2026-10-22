@@ -12,7 +12,7 @@ VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves
 - Per-device output queues replace stale messages. A slow client has an independent sender thread and cannot block the audio callback or other device queues.
 - Each remote device can independently select an integer semitone shift from -12 to +12. Its screen shows `TRANSPOSED BY: N` and immediately rewrites the displayed chord names for that device; the setting stays on that device and does not change other screens. The desktop host has its own transpose selector, chord rendering and status.
 - The host and each remote viewer choose a band role: Main Singer, Backup Singer, Main Guitar, Rythm Guitar, Drummer, Percussionist, Bass or Keys. Remote roles identify connected screens in the host device list.
-- Performance screens use a modern two-line **Now** card with chord rows above each lyric and two additional lines visible in **Up next**. Large arrow buttons provide smooth shared navigation for the selected controller.
+- Viewer screens use a modern light chord-sheet card with monospaced, position-aligned chord rows above exactly two lyric rows, a section badge such as `CHORUS`, and two additional lines visible in **Up next**. Large arrow buttons provide smooth shared navigation for the selected controller.
 - Browser display modes, local clock, proportional text, supported screen wake lock, reconnect, latency estimation and per-device sync nudge are available behind the gear control.
 - A ninth device is refused and shown a friendly maximum-device message by the browser view.
 - The host editor switches to a large lyrics display while the DAW transport is playing.

@@ -35,12 +35,12 @@
     return tokens.every(token=>/^[A-G](?:#|b)?(?:m|maj|min|sus|dim|aug|add)?\d*(?:[+\-()]|\/[A-G](?:#|b)?)*$/i.test(token));
   };
   const lyricBlocks = () => {
-    const result=[];
+    const result=[]; let section='';
     for(let index=0;index<rows.length;index+=1){
-      if(rows[index].section)continue;
+      if(rows[index].section){section=rows[index].text;continue;}
       if(isChordOnly(rows[index].text)&&index+1<rows.length&&!rows[index+1].section){
-        result.push({index,chord:rows[index].text,text:rows[index+1].text}); index+=1;
-      }else result.push({index,chord:'',text:rows[index].text});
+        result.push({index,chord:rows[index].text,text:rows[index+1].text,section}); index+=1;
+      }else result.push({index,chord:'',text:rows[index].text,section});
     }
     return result;
   };
@@ -68,6 +68,7 @@
     const blocks=lyricBlocks(); if (!blocks.length) return;
     let start=blocks.findIndex(block=>block.index>=active); if(start<0) start=Math.max(0,blocks.length-1);
     if(start>0&&blocks[start].index>active)start-=1;
+    $('section-label').textContent=(blocks[start].section||'SONG').toUpperCase();
     blocks.slice(start,start+2).forEach(block=>appendBlock(lyrics,block,false));
     blocks.slice(start+2,start+4).forEach(block=>appendBlock(upNext,block,true));
   };
