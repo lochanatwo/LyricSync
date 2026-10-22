@@ -1,6 +1,6 @@
 # VocLyrics
 
-VocLyrics is available as both a stereo passthrough VST3 and a standalone desktop app. Both keep lyrics and a setlist and serve a lyrics-only browser view to devices on the same local network. In standalone mode, choose **Desktop host** or any connected device in **Shared scroll controller**; scrolling from the selected controller is synchronized to every connected screen. The browser resources are embedded in the app. Internet access is used only by the GitHub Actions workflow to fetch pinned build dependencies.
+VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves a lyrics-only browser view to devices on the same local network. Choose **Desktop host** or any connected device in **Shared scroll controller**; scrolling from the selected controller is synchronized to every connected screen. The browser resources are embedded in the app. Internet access is used only by the GitHub Actions workflow to fetch pinned build dependencies.
 
 ## Features
 
@@ -24,16 +24,13 @@ The host plug-in API exposes playhead position to effects, but JUCE does not pro
 
 1. Create a new GitHub repository. Unzip this project and upload the files at the ZIP root to the repository root (including `.github/workflows/build.yml`).
 2. Open the repository's **Actions** tab. Select **Build** and choose **Run workflow**, or push a commit to start it automatically.
-3. When a job finishes, open the workflow run and download the single `VocLyrics-All-in-One-Windows` or `VocLyrics-All-in-One-macOS-universal` artifact from **Artifacts**. It contains both the standalone app and VST3 plug-in in one ZIP.
-4. Unzip the package. Launch the standalone app from `Standalone` when you want to run VocLyrics without a DAW. The VST3 is in `Plugins` for DAW use:
-   - Windows: copy `VocLyrics.vst3` to `C:\Program Files\Common Files\VST3\`.
-   - macOS: copy `VocLyrics.vst3` to `/Library/Audio/Plug-Ins/VST3/`, then run `xattr -dr com.apple.quarantine /Library/Audio/Plug-Ins/VST3/VocLyrics.vst3` in Terminal if macOS blocks the downloaded build.
-   - Rescan VST3 plug-ins in your DAW and insert VocLyrics on the vocal track.
-5. Allow the DAW or VocLyrics through the operating-system firewall on first run. Phones and tablets must be on the same Wi-Fi/LAN as the host. The plug-in's right panel shows the address and QR code to open.
+3. When the job finishes, open the workflow run and download `VocLyrics-Standalone-Windows` or `VocLyrics-Standalone-macOS-universal` from **Artifacts**.
+4. Unzip the download and launch `VocLyrics.exe` on Windows or `VocLyrics.app` on macOS. If macOS blocks it, run `xattr -dr com.apple.quarantine /path/to/VocLyrics.app` in Terminal.
+5. Allow VocLyrics through the operating-system firewall on first run. Phones and tablets must be on the same Wi-Fi/LAN as the host. Open the address or QR code shown in the app on the connected devices.
 
 Allow VocLyrics through the firewall when prompted. Open the address/QR code shown in the app on the connected devices. In **Shared scroll controller**, select **Desktop host** or one of the connected devices; then enable **Share scroll** and use the shared-line buttons or click a lyric line on desktop, or swipe/scroll on the selected remote. All connected lyric screens follow that controller.
 
-The workflow uses JUCE 9.0.3, CivetWeb v1.16 at a pinned upstream commit containing its URI parser security fix, and Nayuki QR Code generator v1.8.0, pinned with CMake FetchContent. Windows builds use the Visual Studio toolchain on `windows-latest`; macOS builds are universal arm64 and x86_64 on `macos-latest`. The workflow runs the parser, tagging, interpolation, and eight-client WebSocket tests before packaging the standalone app and VST3 together for each OS.
+The workflow uses JUCE 9.0.3, CivetWeb v1.16 at a pinned upstream commit containing its URI parser security fix, and Nayuki QR Code generator v1.8.0, pinned with CMake FetchContent. Windows builds use the Visual Studio toolchain on `windows-latest`; macOS builds are universal arm64 and x86_64 on `macos-latest`. The workflow runs the parser, tagging, interpolation, and eight-client WebSocket tests before packaging the standalone app for each OS.
 
 ## Project layout
 
