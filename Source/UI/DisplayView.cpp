@@ -32,6 +32,66 @@ struct DisplayBlock
     juce::String chords;
     juce::String lyrics;
 };
+
+std::string transposedRoot(char root, char accidental, int semitones)
+{
+    static constexpr int naturalPitches[] { 9, 11, 0, 2, 4, 5, 7 };
+    static constexpr const char* sharpNames[] { "C", "C#", "D", "D#", "E", "F",
+                                                "F#", "G", "G#", "A", "A#", "B" };
+    auto pitch = naturalPitches[root - 'A'];
+    if (accidental == '#') ++pitch;
+    else if (accidental == 'b') --pitch;
+    pitch = (pitch + semitones) % 12;
+    if (pitch < 0) pitch += 12;
+    return sharpNames[pitch];
+}
+
+std::string transposeChordToken(const std::string& token, int semitones)
+{
+    if (token.empty() || token.front() < 'A' || token.front() > 'G' || semitones == 0) return token;
+    std::string result;
+    std::size_t position = 1;
+    const auto accidental = position < token.size() && (token[position] == '#' || token[position] == 'b')
+                                ? token[position++] : '\0';
+    result += transposedRoot(token.front(), accidental, semitones);
+    while (position < token.size())
+    {
+        if (token[position] == '/' && position + 1 < token.size()
+            && token[position + 1] >= 'A' && token[position + 1] <= 'G')
+        {
+            result += '/';
+            const auto bassRoot = token[++position];
+            ++position;
+            const auto bassAccidental = position < token.size() && (token[position] == '#' || token[position] == 'b')
+                                            ? token[position++] : '\0';
+            result += transposedRoot(bassRoot, bassAccidental, semitones);
+        }
+        else
+        {
+            result += token[position++];
+        }
+    }
+    return result;
+}
+
+juce::String transposeChordLine(const juce::String& line, int semitones)
+{
+    const auto source = line.toStdString();
+    std::string output;
+    for (std::size_t position = 0; position < source.size();)
+    {
+        if (std::isspace(static_cast<unsigned char>(source[position])))
+        {
+            output += source[position++];
+            continue;
+        }
+        auto end = position;
+        while (end < source.size() && ! std::isspace(static_cast<unsigned char>(source[end]))) ++end;
+        output += transposeChordToken(source.substr(position, end - position), semitones);
+        position = end;
+    }
+    return juce::String(output);
+}
 }
 
 DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
@@ -166,12 +226,12 @@ void DisplayView::timerCallback()
             if (blocks[i].sourceIndex <= active) start = i;
         for (std::size_t i = 0; i < 2 && start + i < blocks.size(); ++i)
         {
-            currentChords[i] = blocks[start + i].chords;
+            currentChords[i] = transposeChordLine(blocks[start + i].chords, processor.getTransposeSemitones());
             currentLyrics[i] = blocks[start + i].lyrics;
         }
         for (std::size_t i = 0; i < 2 && start + i + 2 < blocks.size(); ++i)
         {
-            upcomingChords[i] = blocks[start + i + 2].chords;
+            upcomingChords[i] = transposeChordLine(blocks[start + i + 2].chords, processor.getTransposeSemitones());
             upcomingLyrics[i] = blocks[start + i + 2].lyrics;
         }
     }

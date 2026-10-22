@@ -10,7 +10,7 @@ VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves
 - Project state contains setlist, lyrics, song marker metadata and server port.
 - Starts an embedded HTTP/WebSocket server on the LAN, searches subsequent ports when a port is busy, embeds the remote web app, and limits connections to eight.
 - Per-device output queues replace stale messages. A slow client has an independent sender thread and cannot block the audio callback or other device queues.
-- Each remote device can independently select an integer semitone shift from -12 to +12. Its screen shows `TRANSPOSED BY: N`; the setting stays on that device and does not change other screens. The desktop host has its own transpose selector and status.
+- Each remote device can independently select an integer semitone shift from -12 to +12. Its screen shows `TRANSPOSED BY: N` and immediately rewrites the displayed chord names for that device; the setting stays on that device and does not change other screens. The desktop host has its own transpose selector, chord rendering and status.
 - The host and each remote viewer choose a band role: Main Singer, Backup Singer, Main Guitar, Rythm Guitar, Drummer, Percussionist, Bass or Keys. Remote roles identify connected screens in the host device list.
 - Performance screens use a modern two-line **Now** card with chord rows above each lyric and two additional lines visible in **Up next**. Large arrow buttons provide smooth shared navigation for the selected controller.
 - Browser display modes, local clock, proportional text, supported screen wake lock, reconnect, latency estimation and per-device sync nudge are available behind the gear control.
@@ -18,7 +18,7 @@ VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves
 - The host editor switches to a large lyrics display while the DAW transport is playing.
 - The standalone desktop app runs without a DAW; the host chooses **Desktop host** or any connected device as the single shared-scroll controller. Only that selected device can scroll, and all connected displays follow. Remote devices use a small visible lyric window to limit page memory use.
 
-Transpose is a per-screen semitone cue for performers; VocLyrics does not pitch-shift the host's audio. Each screen can select an integer shift from -12 to +12 semitones, and the visible value uses the exact `TRANSPOSED BY: N` format. The host's transpose choice is stored in the project, while each remote device stores its own choice locally.
+Transpose changes the chord names shown on that screen and does not pitch-shift audio. Each screen can select an integer shift from -12 to +12 semitones, and the visible value uses the exact `TRANSPOSED BY: N` format. The host's transpose choice is stored in the project, while each remote device stores its own choice locally.
 
 For chords, put a chord-only line immediately above its lyric line. VocLyrics groups that pair into one display line, for example:
 

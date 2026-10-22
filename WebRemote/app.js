@@ -44,9 +44,22 @@
     }
     return result;
   };
+  const transposeRoot = (root,accidental,amount) => {
+    const natural={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+    const names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+    let pitch=natural[root]+(accidental==='#'?1:accidental==='b'?-1:0)+amount;
+    return names[((pitch%12)+12)%12];
+  };
+  const transposeChord = (token,amount) => {
+    if(!amount)return token;
+    let changed=token.replace(/^([A-G])([#b]?)/,(match,root,accidental)=>transposeRoot(root,accidental,amount));
+    changed=changed.replace(/\/([A-G])([#b]?)/g,(match,root,accidental)=>`/${transposeRoot(root,accidental,amount)}`);
+    return changed;
+  };
+  const transposeChordLine = line => line.split(/(\s+)/).map(part=>/^\s+$/.test(part)?part:transposeChord(part,prefs.transpose)).join('');
   const appendBlock = (parent,block,preview) => {
     const wrapper=document.createElement('div'); wrapper.className=preview?'lyric-block preview-block':'lyric-block';
-    const chord=document.createElement('div'); chord.className='chord-row'; chord.textContent=block.chord||'\u00a0';
+    const chord=document.createElement('div'); chord.className='chord-row'; chord.textContent=block.chord?transposeChordLine(block.chord):'\u00a0';
     const text=document.createElement('div'); text.className=preview?'lyric-row preview-line':'lyric-row'; text.textContent=block.text;
     wrapper.append(chord,text); parent.appendChild(wrapper);
   };
@@ -94,7 +107,7 @@
   screen.addEventListener('pointerup',event=>{if(pointerY===null)return;const distance=pointerY-event.clientY;if(Math.abs(distance)>22)controlScroll(distance>0?1:-1);pointerY=null;});
   screen.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)>0)controlScroll(event.deltaY>0?1:-1);},{passive:true});
   $('role-confirm').addEventListener('click',()=>chooseRole($('role-first').value)); $('role').addEventListener('change',e=>chooseRole(e.target.value));
-  $('transpose').addEventListener('change',e=>{prefs.transpose=Math.max(-12,Math.min(12,Number.parseInt(e.target.value,10)||0));save();applyPreferences();});
+  $('transpose').addEventListener('change',e=>{prefs.transpose=Math.max(-12,Math.min(12,Number.parseInt(e.target.value,10)||0));save();applyPreferences();lastActive=-2;});
   $('proportional').addEventListener('change',e=>{prefs.proportional=e.target.checked;save();applyPreferences();}); $('show-clock').addEventListener('change',e=>{prefs.clock=e.target.checked;save();applyPreferences();});
   document.querySelectorAll('[data-nudge]').forEach(button=>button.addEventListener('click',()=>{prefs.nudge=button.dataset.nudge==='reset'?0:prefs.nudge+Number(button.dataset.nudge);save();applyPreferences();}));
   $('keep-awake').addEventListener('click',requestWakeLock); document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')requestWakeLock();});
