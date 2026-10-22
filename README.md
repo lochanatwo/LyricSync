@@ -5,12 +5,14 @@ VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves
 ## Features
 
 - Stereo input/output is passed through without changing samples. The audio callback only reads JUCE playhead values and writes scalar atomics; networking and model locks stay on other threads.
-- LRC and untimed lyric lines, section tags, import/export, live tagging, undo and manual timestamp editing.
+- Plain lyrics and section tags with simple import/export and manual shared scrolling; timecode controls are hidden from the standalone workflow.
 - Multiple songs, selection, duplicate, delete, rename (double-click a row), drag reorder, previous/next, active and next song display.
 - Project state contains setlist, lyrics, song marker metadata and server port.
 - Starts an embedded HTTP/WebSocket server on the LAN, searches subsequent ports when a port is busy, embeds the remote web app, and limits connections to eight.
 - Per-device output queues replace stale messages. A slow client has an independent sender thread and cannot block the audio callback or other device queues.
 - Each remote device can independently select an integer semitone shift from -12 to +12. Its screen shows `TRANSPOSED BY: N`; the setting stays on that device and does not change other screens. The desktop host has its own transpose selector and status.
+- The host and each remote viewer choose a band role: Main Singer, Backup Singer, Main Guitar, Rythm Guitar, Drummer, Percussionist, Bass or Keys. Remote roles identify connected screens in the host device list.
+- Performance screens use a modern two-line **Now** card with two additional lines visible in **Up next**.
 - Browser display modes, local clock, proportional text, supported screen wake lock, reconnect, latency estimation and per-device sync nudge are available behind the gear control.
 - A ninth device is refused and shown a friendly maximum-device message by the browser view.
 - The host editor switches to a large lyrics display while the DAW transport is playing.
@@ -49,4 +51,3 @@ Tests/               Parser, tagging, sync and WebSocket tests
 ## If an Actions build fails
 
 Copy the failing job's full error log (including the first compiler or CMake error) into the VocLyrics chat. The source can then be corrected against the actual Windows or macOS toolchain diagnostic, and the workflow can be rerun until it is green.
-

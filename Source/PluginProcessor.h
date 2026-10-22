@@ -70,6 +70,9 @@ public:
     {
         transposeSemitones.store(juce::jlimit(-12, 12, semitones), std::memory_order_relaxed);
     }
+    juce::String getHostRole() const;
+    void setHostRole(const juce::String& role);
+    int getSharedScrollLine() const { return server.scrollLine(); }
 
 private:
     void publishTransport() noexcept;
@@ -91,7 +94,7 @@ private:
     double previousTagTime = -1.0;
     int preferredPort = 8080;
     std::string lastAutoAdvancedId;
+    juce::String hostRole { "Main Singer" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VocLyricsAudioProcessor)
 };
-

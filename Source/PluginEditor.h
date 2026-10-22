@@ -25,5 +25,7 @@ private:
     EditorPanel editor;
     RemotePanel remote;
     DisplayView display;
+    juce::TextButton displayToggle { "Performance view" };
     bool displayMode = false;
+    bool manualDisplayMode = false;
 };

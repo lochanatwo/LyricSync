@@ -2,9 +2,8 @@
 
 SetlistPanel::SetlistPanel(VocLyricsAudioProcessor& p) : processor(p)
 {
-    for (juce::TextButton* button : {&add, &duplicate, &remove, &marker, &up, &down, &previous, &next})
+    for (juce::TextButton* button : {&add, &duplicate, &remove, &up, &down, &previous, &next})
         addAndMakeVisible(*button);
-    addAndMakeVisible(autoAdvance);
     add.onClick = [this] { processor.addSong(); refresh(); if (onSelectionChanged) onSelectionChanged(); };
     duplicate.onClick = [this] { processor.duplicateSong(processor.getActiveIndex()); refresh(); if (onSelectionChanged) onSelectionChanged(); };
     remove.onClick = [this] { processor.deleteSong(processor.getActiveIndex()); refresh(); if (onSelectionChanged) onSelectionChanged(); };
@@ -12,8 +11,6 @@ SetlistPanel::SetlistPanel(VocLyricsAudioProcessor& p) : processor(p)
     down.onClick = [this] { const auto i = processor.getActiveIndex(); processor.moveSong(i, i + 1); refresh(); };
     previous.onClick = [this] { processor.selectSong(juce::jmax(0, processor.getActiveIndex() - 1)); refresh(); if (onSelectionChanged) onSelectionChanged(); };
     next.onClick = [this] { processor.selectSong(processor.getActiveIndex() + 1); refresh(); if (onSelectionChanged) onSelectionChanged(); };
-    marker.onClick = [this] { processor.setSongMarker(processor.getActiveIndex(), processor.getTransportSnapshot().positionSeconds); refresh(); };
-    autoAdvance.onClick = [this] { processor.setSongAutoAdvance(processor.getActiveIndex(), autoAdvance.getToggleState()); };
 }
 
 void SetlistPanel::paint(juce::Graphics& g)
@@ -43,13 +40,6 @@ void SetlistPanel::paint(juce::Graphics& g)
         g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
         g.drawFittedText(juce::String(model.songs()[i].title.c_str()), bounds.reduced(12, 2),
                          juce::Justification::centredLeft, 1);
-        if (model.songs()[i].startSeconds >= 0.0)
-        {
-            g.setColour(juce::Colour(0xff8490a0));
-            g.setFont(juce::FontOptions(10.0f));
-            const auto markerText = "Marker " + juce::String(model.songs()[i].startSeconds, 1) + "s";
-            g.drawText(markerText, bounds.getRight() - 74, bounds.getY() + 27, 65, 14, juce::Justification::centredRight);
-        }
         if (static_cast<int>(i) == active + 1)
         {
             g.setColour(juce::Colour(0xff8490a0));
@@ -63,7 +53,7 @@ void SetlistPanel::resized()
 {
     auto area = getLocalBounds().reduced(8);
     area.removeFromTop(40);
-    auto bottom = area.removeFromBottom(138);
+    auto bottom = area.removeFromBottom(106);
     auto row = bottom.removeFromTop(34);
     add.setBounds(row.removeFromLeft(row.getWidth() / 2).reduced(2));
     duplicate.setBounds(row.reduced(2));
@@ -72,9 +62,6 @@ void SetlistPanel::resized()
     auto moveControls = row.reduced(2);
     up.setBounds(moveControls.removeFromLeft(moveControls.getWidth() / 2).reduced(2));
     down.setBounds(moveControls.reduced(2));
-    row = bottom.removeFromTop(34);
-    marker.setBounds(row.removeFromLeft(row.getWidth() * 0.58f).reduced(2));
-    autoAdvance.setBounds(row.reduced(2));
     row = bottom.removeFromTop(32);
     previous.setBounds(row.removeFromLeft(row.getWidth() / 2).reduced(2));
     next.setBounds(row.reduced(2));
@@ -82,9 +69,6 @@ void SetlistPanel::resized()
 
 void SetlistPanel::refresh()
 {
-    const auto model = processor.getSetlistSnapshot();
-    const auto* active = model.activeSong();
-    autoAdvance.setToggleState(active != nullptr && active->autoAdvance, juce::dontSendNotification);
     repaint();
 }
 void SetlistPanel::mouseDown(const juce::MouseEvent& event)
@@ -137,4 +121,3 @@ void SetlistPanel::mouseDoubleClick(const juce::MouseEvent& event)
             }
         }), true);
 }
-

@@ -200,6 +200,11 @@ int ServerManager::scrollController() const
     std::lock_guard<std::mutex> lock(stateMutex);
     return activeScrollController;
 }
+int ServerManager::scrollLine() const
+{
+    std::lock_guard<std::mutex> lock(stateMutex);
+    return activeScrollLine;
+}
 void ServerManager::setScrollLine(int line)
 {
     {
@@ -393,7 +398,8 @@ std::string ServerManager::makePayload(const RemoteState& value)
         << ",\"playing\":" << (value.playing ? "true" : "false")
         << ",\"looping\":" << (value.looping ? "true" : "false")
         << ",\"controllerId\":" << value.scrollControllerId
-        << ",\"scrollLine\":" << value.scrollLine << '}';
+        << ",\"scrollLine\":" << value.scrollLine
+        << ",\"hostRole\":\"" << escapeJson(value.hostRole) << "\"}";
     return out.str();
 }
 std::string ServerManager::escapeJson(const std::string& value)
@@ -482,4 +488,3 @@ void ServerManager::broadcastLoop()
     }
 }
 }
-

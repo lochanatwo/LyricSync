@@ -35,6 +35,7 @@ struct RemoteState
     bool looping = false;
     int scrollLine = -1;
     int scrollControllerId = 0;
+    std::string hostRole;
 };
 
 class ServerManager
@@ -54,6 +55,7 @@ public:
     int clientCount() const;
     void setScrollController(int id);
     int scrollController() const;
+    int scrollLine() const;
     void setScrollLine(int line);
 
 private:

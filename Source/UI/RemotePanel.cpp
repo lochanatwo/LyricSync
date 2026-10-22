@@ -2,7 +2,14 @@
 #include "Network/NetworkUtils.h"
 #include "Network/QrCode.h"
 #include <algorithm>
+#include <iterator>
 #include <limits>
+
+namespace
+{
+constexpr const char* bandRoles[] = { "Main Singer", "Backup Singer", "Main Guitar", "Rythm Guitar",
+                                      "Drummer", "Percussionist", "Bass", "Keys" };
+}
 
 RemotePanel::RemotePanel(VocLyricsAudioProcessor& p) : processor(p), deviceList(*this)
 {
@@ -12,6 +19,8 @@ RemotePanel::RemotePanel(VocLyricsAudioProcessor& p) : processor(p), deviceList(
     addAndMakeVisible(interfaceChoice);
     addAndMakeVisible(controllerLabel);
     addAndMakeVisible(controllerChoice);
+    addAndMakeVisible(roleLabel);
+    addAndMakeVisible(roleChoice);
     addAndMakeVisible(port);
     addAndMakeVisible(applyPort);
     viewport.setViewedComponent(&deviceList, false);
@@ -37,6 +46,11 @@ RemotePanel::RemotePanel(VocLyricsAudioProcessor& p) : processor(p), deviceList(
         const auto selected = controllerChoice.getSelectedId();
         processor.getServer().setScrollController(selected <= 1 ? 0 : selected - 1);
     };
+    roleLabel.setText("Host band role", juce::dontSendNotification);
+    for (int i = 0; i < static_cast<int>(std::size(bandRoles)); ++i)
+        roleChoice.addItem(bandRoles[i], i + 1);
+    roleChoice.setText(processor.getHostRole(), juce::dontSendNotification);
+    roleChoice.onChange = [this] { processor.setHostRole(roleChoice.getText()); };
     portLabel.setText("Port", juce::dontSendNotification);
     port.setInputRestrictions(5, "0123456789");
     port.setText("8080", juce::dontSendNotification);
@@ -68,16 +82,18 @@ void RemotePanel::paint(juce::Graphics& g)
     g.drawFittedText(url, 8, 194, getWidth() - 16, 25, juce::Justification::centred, 1);
     g.setColour(juce::Colour(0xff8793a3));
     g.setFont(juce::FontOptions(12.0f));
-    g.drawText(juce::String("DEVICES  ") + juce::String(static_cast<int>(currentDevices.size())) + " / 8", 12, 326, getWidth() - 24, 22, juce::Justification::centredLeft);
+    g.drawText(juce::String("BAND SCREENS  ") + juce::String(static_cast<int>(currentDevices.size())) + " / 8", 12, 380, getWidth() - 24, 22, juce::Justification::centredLeft);
 }
 void RemotePanel::resized()
 {
     enabled.setBounds(10, 38, getWidth() - 20, 28);
     address.setBounds(8, 220, getWidth() - 16, 23);
     interfaceChoice.setBounds(8, 246, getWidth() - 16, 26);
-    controllerLabel.setBounds(8, 276, getWidth() - 16, 18);
-    controllerChoice.setBounds(8, 294, getWidth() - 16, 26);
-    viewport.setBounds(8, 350, getWidth() - 16, juce::jmax(60, getHeight() - 414));
+    roleLabel.setBounds(8, 276, getWidth() - 16, 18);
+    roleChoice.setBounds(8, 294, getWidth() - 16, 28);
+    controllerLabel.setBounds(8, 330, getWidth() - 16, 18);
+    controllerChoice.setBounds(8, 348, getWidth() - 16, 28);
+    viewport.setBounds(8, 404, getWidth() - 16, juce::jmax(60, getHeight() - 468));
     portLabel.setBounds(12, getHeight() - 55, 44, 26);
     port.setBounds(58, getHeight() - 55, 70, 26);
     applyPort.setBounds(134, getHeight() - 55, getWidth() - 146, 26);
@@ -155,4 +171,3 @@ void RemotePanel::DeviceList::mouseDown(const juce::MouseEvent& event)
     else if (x < getWidth() * 0.64) parent.processor.getServer().nudgeDevice(device.id, 50);
     else parent.processor.getServer().disconnectDevice(device.id);
 }
-

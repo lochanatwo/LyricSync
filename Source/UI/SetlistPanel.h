@@ -19,8 +19,7 @@ public:
 
 private:
     VocLyricsAudioProcessor& processor;
-    juce::TextButton add { "+ Song" }, duplicate { "Duplicate" }, remove { "Delete" }, marker { "Set marker here" };
-    juce::ToggleButton autoAdvance { "Auto next" };
+    juce::TextButton add { "+ Song" }, duplicate { "Duplicate" }, remove { "Delete" };
     juce::TextButton up { "↑" }, down { "↓" }, previous { "‹" }, next { "›" };
     int pressedRow = -1;
     bool dragged = false;

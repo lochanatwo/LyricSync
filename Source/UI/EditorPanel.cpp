@@ -37,7 +37,7 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
     lyrics.setFont(juce::FontOptions(19.0f));
     lyrics.setScrollbarsShown(true);
     lyrics.onTextChange = [this] { processor.setLyricsText(lyrics.getText()); };
-    for (auto* button : {&tag, &undo, &import, &exportFile, &previousSection, &nextSection, &previousLine, &nextLine})
+    for (auto* button : {&import, &exportFile, &previousSection, &nextSection, &previousLine, &nextLine})
         addAndMakeVisible(*button);
     addAndMakeVisible(lyrics);
     addAndMakeVisible(shareScroll);
@@ -54,8 +54,6 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
         processor.setTransposeSemitones(semitones);
         transposeStatus.setText(juce::String("TRANSPOSED BY: ") + juce::String(processor.getTransposeSemitones()), juce::dontSendNotification);
     };
-    tag.onClick = [this] { processor.tagNextLine(); loadFromProcessor(); };
-    undo.onClick = [this] { processor.undoTag(); loadFromProcessor(); };
     previousSection.onClick = [this] { moveSection(-1); };
     nextSection.onClick = [this] { moveSection(1); };
     previousLine.onClick = [this] { moveCaretLine(-1); };
@@ -67,7 +65,7 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
     };
     import.onClick = [this]
     {
-        chooser = std::make_unique<juce::FileChooser>("Import lyrics", juce::File(), "*.lrc");
+        chooser = std::make_unique<juce::FileChooser>("Import lyrics", juce::File(), "*.txt;*.lrc");
         const juce::Component::SafePointer<EditorPanel> safe(this);
         chooser->launchAsync(juce::FileBrowserComponent::openMode | juce::FileBrowserComponent::canSelectFiles,
             [safe](const juce::FileChooser& fileChooser)
@@ -79,7 +77,7 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
     };
     exportFile.onClick = [this]
     {
-        chooser = std::make_unique<juce::FileChooser>("Export lyrics", juce::File("Lyrics.lrc"), "*.lrc");
+        chooser = std::make_unique<juce::FileChooser>("Export lyrics", juce::File("Lyrics.txt"), "*.txt");
         const juce::Component::SafePointer<EditorPanel> safe(this);
         chooser->launchAsync(juce::FileBrowserComponent::saveMode | juce::FileBrowserComponent::canSelectFiles,
             [safe](const juce::FileChooser& fileChooser)
@@ -96,12 +94,10 @@ void EditorPanel::resized()
 {
     auto area = getLocalBounds().reduced(12);
     auto controls = area.removeFromTop(42);
-    tag.setBounds(controls.removeFromLeft(145).reduced(3));
-    undo.setBounds(controls.removeFromLeft(110).reduced(3));
-    import.setBounds(controls.removeFromLeft(105).reduced(3));
-    exportFile.setBounds(controls.removeFromLeft(105).reduced(3));
-    previousSection.setBounds(controls.removeFromLeft(105).reduced(3));
-    nextSection.setBounds(controls.removeFromLeft(105).reduced(3));
+    import.setBounds(controls.removeFromLeft(130).reduced(3));
+    exportFile.setBounds(controls.removeFromLeft(130).reduced(3));
+    previousSection.setBounds(controls.removeFromLeft(120).reduced(3));
+    nextSection.setBounds(controls.removeFromLeft(120).reduced(3));
     auto sharedControls = area.removeFromTop(38);
     shareScroll.setBounds(sharedControls.removeFromLeft(130).reduced(3));
     previousLine.setBounds(sharedControls.removeFromLeft(125).reduced(3));
@@ -163,4 +159,3 @@ void EditorPanel::loadFromProcessor()
     const auto text = processor.getLyricsText();
     if (lyrics.getText() != text) lyrics.setText(text, false);
 }
-

@@ -13,7 +13,7 @@ public:
 private:
     VocLyricsAudioProcessor& processor;
     juce::TextEditor lyrics;
-    juce::TextButton tag { "Tag next line" }, undo { "Undo tag" }, import { "Import .lrc" }, exportFile { "Export .lrc" };
+    juce::TextButton import { "Import lyrics" }, exportFile { "Export lyrics" };
     juce::TextButton previousSection { "Prev section" }, nextSection { "Next section" };
     juce::TextButton previousLine { "Shared line −" }, nextLine { "Shared line +" };
     juce::ToggleButton shareScroll { "Share scroll" };
@@ -23,4 +23,3 @@ private:
     void moveSection(int direction);
     void moveCaretLine(int direction);
 };
-

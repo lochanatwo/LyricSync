@@ -97,6 +97,19 @@ int VocLyricsAudioProcessor::getActiveIndex() const
     return setlist.activeIndex();
 }
 
+juce::String VocLyricsAudioProcessor::getHostRole() const
+{
+    const juce::ScopedLock lock(modelLock);
+    return hostRole;
+}
+
+void VocLyricsAudioProcessor::setHostRole(const juce::String& role)
+{
+    const juce::ScopedLock lock(modelLock);
+    hostRole = role.isNotEmpty() ? role : juce::String("Main Singer");
+    updateServerState();
+}
+
 void VocLyricsAudioProcessor::setSharedScrollLine(int line)
 {
     const auto bounded = juce::jmax(-1, line);
@@ -259,6 +272,7 @@ void VocLyricsAudioProcessor::updateServerState()
     remote.hostTimeMilliseconds = juce::Time::getMillisecondCounterHiRes();
     remote.playing = isPlaying.load(std::memory_order_relaxed);
     remote.looping = isLooping.load(std::memory_order_relaxed);
+    remote.hostRole = hostRole.toStdString();
     server.setState(std::move(remote));
 }
 
@@ -274,6 +288,7 @@ void VocLyricsAudioProcessor::getStateInformation(juce::MemoryBlock& destination
     root.setProperty("active", setlist.activeIndex(), nullptr);
     root.setProperty("port", server.port() > 0 ? server.port() : preferredPort, nullptr);
     root.setProperty("transposeSemitones", getTransposeSemitones(), nullptr);
+    root.setProperty("hostRole", hostRole, nullptr);
     for (const auto& song : setlist.songs())
     {
         juce::ValueTree child("Song");
@@ -316,6 +331,7 @@ void VocLyricsAudioProcessor::setStateInformation(const void* data, int size)
     }
     setlist.replace(std::move(songs), static_cast<int>(root.getProperty("active", 0)));
     setTransposeSemitones(static_cast<int>(root.getProperty("transposeSemitones", 0)));
+    hostRole = root.getProperty("hostRole", "Main Singer").toString();
     updateServerState();
 }
 
@@ -323,4 +339,3 @@ juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
     return new VocLyricsAudioProcessor();
 }
-

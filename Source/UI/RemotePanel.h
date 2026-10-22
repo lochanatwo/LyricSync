@@ -24,9 +24,10 @@ private:
     void refreshDevices();
     VocLyricsAudioProcessor& processor;
     juce::ToggleButton enabled { "Server on" };
-    juce::Label address, portLabel, controllerLabel;
+    juce::Label address, portLabel, controllerLabel, roleLabel;
     juce::ComboBox interfaceChoice;
     juce::ComboBox controllerChoice;
+    juce::ComboBox roleChoice;
     juce::TextEditor port;
     juce::TextButton applyPort { "Apply" };
     DeviceList deviceList;

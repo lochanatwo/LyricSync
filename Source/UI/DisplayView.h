@@ -12,8 +12,6 @@ public:
 private:
     void timerCallback() override;
     VocLyricsAudioProcessor& processor;
-    juce::ComboBox style;
     juce::ToggleButton proportional { "Proportional text" }, clock { "Clock" };
-    juce::String titleText, displayText, clockText, transposeText;
+    juce::String titleText, currentText, upcomingText, clockText, transposeText, roleText;
 };
-

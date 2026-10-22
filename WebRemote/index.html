@@ -3,28 +3,43 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#090c11">
-  <title>VocLyrics</title>
+  <meta name="theme-color" content="#080b12">
+  <title>VocLyrics Live</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <main id="screen" aria-live="polite">
-    <div id="connection" aria-label="Connection status"><i></i><span>Connecting</span></div>
-    <header id="song"></header>
-    <div id="transpose-status" aria-live="polite">TRANSPOSED BY: 0</div>
-    <section id="lyrics" class="scrolling"></section>
-    <footer><span id="next-song"></span><time id="clock"></time></footer>
+    <div class="glow glow-one"></div><div class="glow glow-two"></div>
+    <nav>
+      <div class="brand"><i></i><span>VOCLYRICS</span><small>LIVE</small></div>
+      <div class="nav-right"><span id="role-badge">CHOOSE ROLE</span><div id="connection"><i></i><span>Connecting</span></div></div>
+    </nav>
+    <header><div id="song">VocLyrics</div><div id="next-song"></div></header>
+    <section class="stage">
+      <article class="now-card">
+        <div class="eyebrow"><span>NOW</span><strong id="transpose-status">TRANSPOSED BY: 0</strong></div>
+        <div id="lyrics"></div>
+      </article>
+      <article class="next-card">
+        <div class="eyebrow"><span>UP NEXT</span></div>
+        <div id="up-next"></div>
+      </article>
+    </section>
+    <footer><span>Swipe or scroll when you have control</span><time id="clock"></time></footer>
     <button id="gear" aria-label="Display settings">⚙</button>
     <aside id="settings" class="hidden">
-      <label>Transpose by (semitones)<select id="transpose"></select></label>
-      <label>Display style<select id="style"><option value="single">Single Line</option><option value="scrolling">Scrolling</option><option value="teleprompter">Teleprompter</option></select></label>
-      <label class="check"><input type="checkbox" id="proportional"> Proportional text</label>
+      <h2>Display settings</h2>
+      <label>Your band role<select id="role"></select></label>
+      <label>Transpose by<select id="transpose"></select></label>
+      <label class="check"><input type="checkbox" id="proportional"> Fit text automatically</label>
       <label class="check"><input type="checkbox" id="show-clock"> Show clock</label>
       <label>Sync nudge <span id="nudge-value">0 ms</span><div class="nudge"><button data-nudge="-50">− 50 ms</button><button data-nudge="reset">Reset</button><button data-nudge="50">+ 50 ms</button></div></label>
       <button id="keep-awake">Keep screen awake</button>
     </aside>
   </main>
+  <section id="role-setup" class="role-setup hidden" aria-modal="true">
+    <div class="role-dialog"><span class="logo-mark"></span><p>WELCOME TO VOCLYRICS</p><h1>What’s your role?</h1><small>This labels your screen for the host.</small><select id="role-first"></select><button id="role-confirm">Join the band</button></div>
+  </section>
   <script src="/app.js"></script>
 </body>
 </html>
-
