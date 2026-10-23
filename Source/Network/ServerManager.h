@@ -63,6 +63,7 @@ private:
     static int serveScript(mg_connection*, void*);
     static int serveStyle(mg_connection*, void*);
     static int serveManifest(mg_connection*, void*);
+    static int serveState(mg_connection*, void*);
     static int serveCapacity(mg_connection*, void*);
     static int websocketConnect(const mg_connection*, void*);
     static void websocketReady(mg_connection*, void*);

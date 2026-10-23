@@ -12,7 +12,7 @@
   try { prefs = {...defaults, ...JSON.parse(localStorage.getItem(key) || '{}')}; } catch (_) {}
   prefs.transpose = Number.isInteger(prefs.transpose) ? Math.max(-12, Math.min(12, prefs.transpose)) : 0;
   if (!roles.includes(prefs.role)) prefs.role = '';
-  let socket, state = null, rows = [], renderedLyrics = null, hostOffset = 0, retry = 0, wakeLock = null, clientId = 0, pointerY = null, lastActive = -2;
+  let socket, state = null, rows = [], renderedLyrics = null, hostOffset = 0, retry = 0, wakeLock = null, clientId = 0, pointerY = null, lastActive = -2, polling = false;
   const save = () => localStorage.setItem(key, JSON.stringify(prefs));
   const parse = source => source.split(/\r?\n/).map(line => {
     const m = line.match(/^\[(\d+):(\d{1,2})(?:[.,](\d{1,3}))?\](.*)$/);
@@ -108,25 +108,38 @@
     setTimeout(draw,33);
   };
   const setConnection=(ok,message)=>{$('connection').classList.toggle('connected',ok);$('connection span').textContent=message;};
+  const acceptMessage=data=>{
+    if(data.type==='hello')clientId=Number(data.clientId)||0;
+    else if(data.type==='state'){state=data;if(renderedLyrics!==data.lyrics){renderedLyrics=data.lyrics;rows=parse(data.lyrics||'');lastActive=-2;}}
+    else if(data.type==='pong'){const sent=Number(data.clientSent),received=performance.now(),measured=Number(data.hostMs)-(sent+received)/2;hostOffset+=(measured-hostOffset)*.2;}
+    else if(data.type==='nudge'){prefs.nudge+=Number(data.delta)||0;save();applyPreferences();}
+    else if(data.type==='reset'){prefs.nudge=0;save();applyPreferences();}
+  };
+  const startPolling=()=>{
+    if(polling)return; polling=true;
+    const poll=async()=>{
+      if(socket&&socket.readyState===WebSocket.OPEN){polling=false;return;}
+      try{const response=await fetch(`/state?t=${Date.now()}`,{cache:'no-store'});if(response.ok){acceptMessage(await response.json());setConnection(true,'Connected');}}catch(_){setConnection(false,'Reconnecting');}
+      if(polling)setTimeout(poll,200);
+    };
+    poll();
+  };
   const connect=()=>{
-    socket=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws`);
-    socket.onopen=()=>{retry=0;setConnection(true,'Connected');identify();ping();};
-    socket.onmessage=event=>{let data;try{data=JSON.parse(event.data);}catch(_){return;}
-      if(data.type==='hello')clientId=Number(data.clientId)||0;
-      else if(data.type==='state'){state=data;if(renderedLyrics!==data.lyrics){renderedLyrics=data.lyrics;rows=parse(data.lyrics||'');lastActive=-2;}}
-      else if(data.type==='pong'){const sent=Number(data.clientSent),received=performance.now(),measured=Number(data.hostMs)-(sent+received)/2;hostOffset+=(measured-hostOffset)*.2;}
-      else if(data.type==='nudge'){prefs.nudge+=Number(data.delta)||0;save();applyPreferences();}
-      else if(data.type==='reset'){prefs.nudge=0;save();applyPreferences();}};
-    socket.onclose=async()=>{setConnection(false,'Reconnecting');try{const response=await fetch('/capacity',{cache:'no-store'});if(await response.text()==='full'){showFull();return;}}catch(_){}setTimeout(connect,Math.min(6000,500*(2**Math.min(retry++,4))));};
-    socket.onerror=()=>setConnection(false,'Connection interrupted');
+    try{socket=new WebSocket(`${location.protocol==='https:'?'wss:':'ws:'}//${location.host}/ws`);}catch(_){startPolling();setTimeout(connect,1500);return;}
+    socket.onopen=()=>{polling=false;retry=0;setConnection(true,'Connected');identify();ping();};
+    socket.onmessage=event=>{let data;try{data=JSON.parse(event.data);}catch(_){return;}acceptMessage(data);};
+    socket.onclose=async()=>{setConnection(false,'Reconnecting');startPolling();try{const response=await fetch('/capacity',{cache:'no-store'});if(await response.text()==='full'){showFull();return;}}catch(_){}setTimeout(connect,Math.min(6000,500*(2**Math.min(retry++,4))));};
+    socket.onerror=()=>{setConnection(false,'Connection interrupted');startPolling();};
+    setTimeout(()=>{if(!socket||socket.readyState!==WebSocket.OPEN)startPolling();},1500);
   };
   const ping=()=>{if(socket&&socket.readyState===WebSocket.OPEN){socket.send(JSON.stringify({type:'ping',clientSent:performance.now()}));setTimeout(ping,1000);}};
   const controlScroll=delta=>{if(!state||state.controllerId!==clientId||clientId<=0)return;const indices=lyricBlocks().map(block=>block.index);if(!indices.length)return;let pos=indices.findIndex(index=>index>=(state.scrollLine>=0?state.scrollLine:indices[0]));if(pos<0)pos=0;pos=Math.max(0,Math.min(indices.length-1,pos+delta));state.scrollLine=indices[pos];socket.send(JSON.stringify({type:'scroll',line:state.scrollLine}));lastActive=-2;};
   const showFull=()=>{const full=document.createElement('div');full.id='full';full.textContent='VocLyrics is already serving 8 devices. Ask the host to disconnect one, then refresh.';document.body.appendChild(full);};
   const requestWakeLock=async()=>{try{if('wakeLock'in navigator)wakeLock=await navigator.wakeLock.request('screen');}catch(_){}};
   $('gear').addEventListener('click',()=>settings.classList.toggle('hidden'));
-  $('fullscreen').addEventListener('click',async()=>{if(isIOS&&!isStandalone){$('ios-fullscreen-help').classList.remove('hidden');return;}try{if(!document.fullscreenElement&&document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen();else if(document.fullscreenElement&&document.exitFullscreen)await document.exitFullscreen();}catch(_){$('ios-fullscreen-help').classList.remove('hidden');}});
-  $('ios-help-close').addEventListener('click',()=>$('ios-fullscreen-help').classList.add('hidden'));
+  const fullscreenButton=$('fullscreen'),iosHelp=$('ios-fullscreen-help'),iosHelpClose=$('ios-help-close');
+  if(fullscreenButton)fullscreenButton.addEventListener('click',async()=>{if(isIOS&&!isStandalone){if(iosHelp)iosHelp.classList.remove('hidden');return;}try{if(!document.fullscreenElement&&document.documentElement.requestFullscreen)await document.documentElement.requestFullscreen();else if(document.fullscreenElement&&document.exitFullscreen)await document.exitFullscreen();}catch(_){if(iosHelp)iosHelp.classList.remove('hidden');}});
+  if(iosHelpClose)iosHelpClose.addEventListener('click',()=>iosHelp.classList.add('hidden'));
   document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'×':'⛶';$('fullscreen').setAttribute('aria-label',document.fullscreenElement?'Exit fullscreen':'Enter fullscreen');setTimeout(fitSheet,80);});
   window.addEventListener('resize',()=>setTimeout(fitSheet,60));
   $('scroll-up').addEventListener('click',()=>controlScroll(-1)); $('scroll-down').addEventListener('click',()=>controlScroll(1));

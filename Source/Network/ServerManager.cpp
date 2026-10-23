@@ -103,6 +103,7 @@ bool ServerManager::start(int preferredPort)
             mg_set_request_handler(context, "/app.js", &ServerManager::serveScript, this);
             mg_set_request_handler(context, "/style.css", &ServerManager::serveStyle, this);
             mg_set_request_handler(context, "/manifest.json", &ServerManager::serveManifest, this);
+            mg_set_request_handler(context, "/state", &ServerManager::serveState, this);
             mg_set_request_handler(context, "/capacity", &ServerManager::serveCapacity, this);
             mg_set_websocket_handler(context, "/ws", &ServerManager::websocketConnect,
                                      &ServerManager::websocketReady, &ServerManager::websocketData,
@@ -262,6 +263,17 @@ int ServerManager::serveManifest(mg_connection* connection, void*)
     return sendAsset(connection, "application/manifest+json; charset=utf-8",
                      VocLyricsWeb::manifest_json, VocLyricsWeb::manifest_jsonSize);
 }
+int ServerManager::serveState(mg_connection* connection, void* data)
+{
+    auto* self = static_cast<ServerManager*>(data);
+    std::string payload;
+    {
+        std::lock_guard<std::mutex> lock(self->stateMutex);
+        payload = self->latestPayload.empty() ? makePayload(self->state) : self->latestPayload;
+    }
+    return sendAsset(connection, "application/json; charset=utf-8", payload.data(),
+                     static_cast<int>(payload.size()));
+}
 int ServerManager::serveCapacity(mg_connection* connection, void* data)
 {
     const auto* self = static_cast<ServerManager*>(data);
@@ -271,7 +283,10 @@ int ServerManager::serveCapacity(mg_connection* connection, void* data)
 }
 int ServerManager::sendAsset(mg_connection* connection, const char* mime, const void* bytes, int size)
 {
-    mg_send_http_ok(connection, mime, size);
+    mg_printf(connection, "HTTP/1.1 200 OK\r\nContent-Type: %s\r\nContent-Length: %d\r\n"
+                          "Cache-Control: no-store, no-cache, must-revalidate, max-age=0\r\n"
+                          "Pragma: no-cache\r\nExpires: 0\r\nConnection: close\r\n\r\n",
+              mime, size);
     mg_write(connection, bytes, static_cast<std::size_t>(size));
     return 1;
 }

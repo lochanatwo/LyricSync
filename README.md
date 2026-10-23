@@ -9,6 +9,7 @@ VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves
 - Multiple songs, selection, duplicate, delete, rename (double-click a row), drag reorder, previous/next, active and next song display.
 - Project state contains setlist, lyrics, song marker metadata and server port.
 - Starts an embedded HTTP/WebSocket server on the LAN, searches subsequent ports when a port is busy, embeds the remote web app, and limits connections to eight.
+- Viewer assets are served with no-cache headers and a versioned URL so phones cannot mix old HTML with new JavaScript. A low-latency HTTP state fallback keeps lyrics updating when a browser or network blocks WebSockets.
 - Per-device output queues replace stale messages. A slow client has an independent sender thread and cannot block the audio callback or other device queues.
 - Each remote device can independently select an integer semitone shift from -12 to +12. Its screen shows `TRANSPOSED BY: N` and immediately rewrites the displayed chord names for that device; the setting stays on that device and does not change other screens. The desktop host has its own transpose selector, chord rendering and status.
 - The host and each remote viewer choose a band role: Main Singer, Backup Singer, Main Guitar, Rythm Guitar, Drummer, Percussionist, Bass or Keys. Remote roles identify connected screens in the host device list.
