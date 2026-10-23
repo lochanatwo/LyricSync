@@ -97,6 +97,7 @@
   const draw = () => {
     if(state){
       let active=-1,best=-1; rows.forEach((r,i)=>{if(!r.section&&r.time>=0&&r.time<=position()&&r.time>=best){active=i;best=r.time;}});
+      if(Number.isInteger(state.activeLine)&&state.activeLine>=0) active=Math.min(state.activeLine,Math.max(0,rows.length-1));
       if(Number.isInteger(state.scrollLine)&&state.scrollLine>=0) active=Math.min(state.scrollLine,Math.max(0,rows.length-1));
       if(active<0) active=rows.findIndex(r=>!r.section);
       $('song').textContent=state.title||'VocLyrics'; $('next-song').textContent=state.next?`Next song: ${state.next}`:'';

@@ -17,8 +17,11 @@ bool isChordOnlyLine(const std::string& text)
     bool found = false;
     while (input >> token)
     {
+        while (! token.empty() && (token.front() == '|' || token.front() == ':')) token.erase(token.begin());
+        while (! token.empty() && (token.back() == '|' || token.back() == ':')) token.pop_back();
+        if (token.empty()) continue;
         found = true;
-        if (token.empty() || token.front() < 'A' || token.front() > 'G') return false;
+        if (token.front() < 'A' || token.front() > 'G') return false;
         for (std::size_t i = 1; i < token.size(); ++i)
         {
             const auto c = token[i];
@@ -27,6 +30,18 @@ bool isChordOnlyLine(const std::string& text)
         }
     }
     return found;
+}
+
+bool isDividerLine(const std::string& text)
+{
+    auto visible = std::size_t { 0 };
+    for (const auto character : text)
+    {
+        if (std::isspace(static_cast<unsigned char>(character))) continue;
+        if (character != '-' && character != '_' && character != '=') return false;
+        ++visible;
+    }
+    return visible >= 3;
 }
 }
 
@@ -150,6 +165,7 @@ void VocLyricsAudioProcessor::moveSharedScrollLine(int direction)
     for (int i = 0; i < static_cast<int>(song->lyrics.size()); ++i)
     {
         if (song->lyrics[static_cast<std::size_t>(i)].isSection) continue;
+        if (isDividerLine(song->lyrics[static_cast<std::size_t>(i)].text)) continue;
         starts.push_back(i);
         if (isChordOnlyLine(song->lyrics[static_cast<std::size_t>(i)].text)
             && i + 1 < static_cast<int>(song->lyrics.size())
@@ -169,7 +185,11 @@ void VocLyricsAudioProcessor::moveSharedScrollLine(int direction)
 void VocLyricsAudioProcessor::selectSong(int index)
 {
     const juce::ScopedLock lock(modelLock);
-    if (setlist.setActive(index)) lastAutoAdvancedId.clear();
+    if (setlist.setActive(index))
+    {
+        lastAutoAdvancedId.clear();
+        server.resetScrollLine();
+    }
     updateServerState();
 }
 
@@ -278,6 +298,7 @@ void VocLyricsAudioProcessor::jumpToSong(int index)
     // setlist; hosts can optionally provide their own marker jump integration.
     if (! setlist.setActive(index)) return;
     lastAutoAdvancedId.clear();
+    server.resetScrollLine();
     updateServerState();
 }
 
@@ -297,6 +318,7 @@ void VocLyricsAudioProcessor::timerCallback()
             {
                 lastAutoAdvancedId = song->id;
                 setlist.skip(1);
+                server.resetScrollLine();
             }
         }
     }
@@ -319,6 +341,8 @@ void VocLyricsAudioProcessor::updateServerState()
     remote.positionSeconds = positionMicros.load(std::memory_order_relaxed) / 1000000.0;
     if (song != nullptr && song->startSeconds >= 0.0)
         remote.positionSeconds -= song->startSeconds;
+    if (song != nullptr)
+        remote.activeLine = voclyrics::activeLineAt(*song, remote.positionSeconds);
     remote.hostTimeMilliseconds = juce::Time::getMillisecondCounterHiRes();
     remote.playing = isPlaying.load(std::memory_order_relaxed);
     remote.looping = isLooping.load(std::memory_order_relaxed);

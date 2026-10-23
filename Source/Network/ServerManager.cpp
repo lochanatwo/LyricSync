@@ -221,6 +221,18 @@ void ServerManager::setScrollLine(int line)
     }
     stateChanged.notify_one();
 }
+void ServerManager::resetScrollLine()
+{
+    {
+        std::lock_guard<std::mutex> lock(stateMutex);
+        if (activeScrollLine < 0) return;
+        activeScrollLine = -1;
+        state.scrollLine = -1;
+        latestPayload = makePayload(state);
+        ++stateRevision;
+    }
+    stateChanged.notify_one();
+}
 void ServerManager::disconnectDevice(int id)
 {
     std::lock_guard<std::mutex> lock(clientsMutex);
@@ -420,7 +432,8 @@ std::string ServerManager::makePayload(const RemoteState& value)
         << ",\"looping\":" << (value.looping ? "true" : "false")
         << ",\"controllerId\":" << value.scrollControllerId
         << ",\"scrollLine\":" << value.scrollLine
-        << ",\"hostRole\":\"" << escapeJson(value.hostRole) << "\"}";
+        << ",\"hostRole\":\"" << escapeJson(value.hostRole)
+        << "\",\"activeLine\":" << value.activeLine << '}';
     return out.str();
 }
 std::string ServerManager::escapeJson(const std::string& value)

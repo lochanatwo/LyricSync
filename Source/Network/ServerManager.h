@@ -36,6 +36,7 @@ struct RemoteState
     int scrollLine = -1;
     int scrollControllerId = 0;
     std::string hostRole;
+    int activeLine = -1;
 };
 
 class ServerManager
@@ -57,6 +58,7 @@ public:
     int scrollController() const;
     int scrollLine() const;
     void setScrollLine(int line);
+    void resetScrollLine();
 
 private:
     static int serveIndex(mg_connection*, void*);

@@ -59,7 +59,7 @@ bool VocLyricsAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
 
 void VocLyricsAudioProcessorEditor::timerCallback()
 {
-    const auto shouldDisplay = manualDisplayMode || audioProcessor.getTransportSnapshot().isPlaying;
+    const auto shouldDisplay = manualDisplayMode;
     if (shouldDisplay != displayMode)
     {
         displayMode = shouldDisplay;

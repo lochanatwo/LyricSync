@@ -16,6 +16,6 @@ private:
     juce::ToggleButton proportional { "Proportional text" }, clock { "Clock" };
     juce::TextButton upButton { juce::String::charToString(0x2191) };
     juce::TextButton downButton { juce::String::charToString(0x2193) };
-    std::array<juce::String, 2> currentChords, currentLyrics, upcomingChords, upcomingLyrics;
-    juce::String titleText, clockText, transposeText, roleText;
+    std::array<juce::String, 5> visibleChords, visibleLyrics;
+    juce::String titleText, clockText, transposeText, roleText, sectionText;
 };
