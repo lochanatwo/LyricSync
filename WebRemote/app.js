@@ -81,7 +81,7 @@
     const lines=[...lyrics.querySelectorAll('.chord-row,.lyric-row')]; if(!lines.length)return;
     const longest=Math.max(8,...lines.map(line=>line.textContent.length));
     const width=Math.max(180,card.clientWidth-48),height=Math.max(150,card.clientHeight-100);
-    const size=Math.max(14,Math.min(54,Math.floor(width/(longest*.61)),Math.floor(height/6.2)));
+    const size=Math.max(11,Math.min(46,Math.floor(width/(longest*.61)),Math.floor(height/12)));
     lyrics.style.fontSize=`${size}px`;
   };
   const renderRows = active => {
@@ -90,8 +90,8 @@
     let start=blocks.findIndex(block=>block.index>=active); if(start<0) start=Math.max(0,blocks.length-1);
     if(start>0&&blocks[start].index>active)start-=1;
     $('section-label').textContent=(blocks[start].section||'SONG').toUpperCase();
-    blocks.slice(start,start+2).forEach(block=>appendBlock(lyrics,block,false));
-    blocks.slice(start+2,start+4).forEach(block=>appendBlock(upNext,block,true));
+    blocks.slice(start,start+5).forEach(block=>appendBlock(lyrics,block,false));
+    blocks.slice(start+5,start+7).forEach(block=>appendBlock(upNext,block,true));
     requestAnimationFrame(fitSheet);
   };
   const draw = () => {
@@ -142,7 +142,7 @@
   if(iosHelpClose)iosHelpClose.addEventListener('click',()=>iosHelp.classList.add('hidden'));
   document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'×':'⛶';$('fullscreen').setAttribute('aria-label',document.fullscreenElement?'Exit fullscreen':'Enter fullscreen');setTimeout(fitSheet,80);});
   window.addEventListener('resize',()=>setTimeout(fitSheet,60));
-  $('scroll-up').addEventListener('click',()=>controlScroll(-1)); $('scroll-down').addEventListener('click',()=>controlScroll(1));
+  $('scroll-up').addEventListener('click',()=>controlScroll(-2)); $('scroll-down').addEventListener('click',()=>controlScroll(2));
   screen.addEventListener('pointerdown',event=>{pointerY=event.clientY;});
   screen.addEventListener('pointerup',event=>{if(pointerY===null)return;const distance=pointerY-event.clientY;if(Math.abs(distance)>22)controlScroll(distance>0?1:-1);pointerY=null;});
   screen.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)>0)controlScroll(event.deltaY>0?1:-1);},{passive:true});

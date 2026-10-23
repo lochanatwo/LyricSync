@@ -100,8 +100,8 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
     addAndMakeVisible(clock);
     addAndMakeVisible(upButton);
     addAndMakeVisible(downButton);
-    upButton.onClick = [this] { processor.moveSharedScrollLine(-1); };
-    downButton.onClick = [this] { processor.moveSharedScrollLine(1); };
+    upButton.onClick = [this] { processor.moveSharedScrollLine(-2); };
+    downButton.onClick = [this] { processor.moveSharedScrollLine(2); };
     for (auto* button : { &upButton, &downButton })
     {
         button->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1b2937));

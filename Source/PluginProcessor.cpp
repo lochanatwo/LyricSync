@@ -161,7 +161,8 @@ void VocLyricsAudioProcessor::moveSharedScrollLine(int direction)
     auto position = 0;
     for (int i = 0; i < static_cast<int>(starts.size()); ++i)
         if (starts[static_cast<std::size_t>(i)] <= current) position = i;
-    position = juce::jlimit(0, static_cast<int>(starts.size()) - 1, position + (direction < 0 ? -1 : 1));
+    const auto step = direction < 0 ? juce::jmin(-1, direction) : juce::jmax(1, direction);
+    position = juce::jlimit(0, static_cast<int>(starts.size()) - 1, position + step);
     server.setScrollLine(starts[static_cast<std::size_t>(position)]);
 }
 
