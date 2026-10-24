@@ -44,7 +44,7 @@ RemotePanel::RemotePanel(VocLyricsAudioProcessor& p) : processor(p), deviceList(
     controllerChoice.onChange = [this]
     {
         const auto selected = controllerChoice.getSelectedId();
-        processor.getServer().setScrollController(selected <= 1 ? 0 : selected - 1);
+        processor.setSharedScrollController(selected <= 1 ? 0 : selected - 1);
     };
     roleLabel.setText("Host band role", juce::dontSendNotification);
     for (int i = 0; i < static_cast<int>(std::size(bandRoles)); ++i)
@@ -114,7 +114,7 @@ void RemotePanel::refreshDevices()
         [controllerId](const auto& device) { return device.id == controllerId; });
     if (! controllerConnected)
     {
-        processor.getServer().setScrollController(0);
+        processor.setSharedScrollController(0);
         controllerId = 0;
         devicesChanged = true;
     }

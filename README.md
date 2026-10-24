@@ -15,6 +15,7 @@ VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves
 - The host and each remote viewer choose a band role: Main Singer, Backup Singer, Main Guitar, Rythm Guitar, Drummer, Percussionist, Bass or Keys. Remote roles identify connected screens in the host device list.
 - Viewer screens use a modern light chord-sheet card with monospaced, position-aligned chords above five lyric rows, a section badge such as `CHORUS`, and two additional rows visible in **Up next**. Each large arrow moves the shared sheet by two lyric rows.
 - Desktop performance view uses the same chord-sheet layout with five visible chord and lyric rows. Its **Performance view** button always opens and closes the view, and its arrows also move exactly two rows.
+- Host-controlled automatic scrolling is available in both the editor and performance view. Set a speed from 1 to 60 lyric rows per minute and press **Auto scroll**; every connected display follows the same row, and scrolling stops at the end of the song.
 - Browser display modes, automatic phone-width chord-sheet fitting, Android fullscreen, iPhone Home Screen fullscreen mode, local clock, proportional text, supported screen wake lock, reconnect, latency estimation and per-device sync nudge are available.
 - A ninth device is refused and shown a friendly maximum-device message by the browser view.
 - The host publishes one authoritative active lyric row with every state update, so all WebSocket and HTTP-fallback viewers choose the same row instead of calculating it independently.

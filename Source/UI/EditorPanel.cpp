@@ -43,9 +43,30 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
         addAndMakeVisible(*button);
     addAndMakeVisible(lyrics);
     addAndMakeVisible(shareScroll);
+    addAndMakeVisible(autoScroll);
+    addAndMakeVisible(autoScrollSpeedLabel);
+    addAndMakeVisible(autoScrollSpeed);
     addAndMakeVisible(transposeStatus);
     addAndMakeVisible(transposeChoice);
     transposeStatus.setJustificationType(juce::Justification::centredLeft);
+    autoScrollSpeedLabel.setText("Speed", juce::dontSendNotification);
+    autoScrollSpeedLabel.setJustificationType(juce::Justification::centredLeft);
+    autoScrollSpeed.setRange(1.0, 60.0, 1.0);
+    autoScrollSpeed.setValue(processor.getAutoScrollLinesPerMinute(), juce::dontSendNotification);
+    autoScrollSpeed.setTextValueSuffix(" lines/min");
+    autoScrollSpeed.setSliderStyle(juce::Slider::LinearHorizontal);
+    autoScrollSpeed.setTextBoxStyle(juce::Slider::TextBoxRight, false, 105, 24);
+    autoScrollSpeed.onValueChange = [this]
+    {
+        processor.setAutoScrollLinesPerMinute(juce::roundToInt(autoScrollSpeed.getValue()));
+    };
+    autoScroll.onClick = [this]
+    {
+        const auto enabled = autoScroll.getToggleState();
+        if (enabled) shareScroll.setToggleState(false, juce::dontSendNotification);
+        processor.setAutoScrollEnabled(enabled);
+        autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);
+    };
     for (int semitones = -12; semitones <= 12; ++semitones)
         transposeChoice.addItem(juce::String(semitones), semitones + 13);
     transposeChoice.setSelectedId(processor.getTransposeSemitones() + 13, juce::dontSendNotification);
@@ -62,7 +83,12 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
     nextLine.onClick = [this] { moveCaretLine(1); };
     shareScroll.onClick = [this]
     {
-        if (shareScroll.getToggleState()) timerCallback();
+        if (shareScroll.getToggleState())
+        {
+            processor.setAutoScrollEnabled(false);
+            autoScroll.setToggleState(false, juce::dontSendNotification);
+            timerCallback();
+        }
         else processor.setSharedScrollLine(-1);
     };
     import.onClick = [this]
@@ -106,6 +132,10 @@ void EditorPanel::resized()
     nextLine.setBounds(sharedControls.removeFromLeft(125).reduced(3));
     transposeStatus.setBounds(sharedControls.removeFromLeft(175).reduced(3));
     transposeChoice.setBounds(sharedControls.removeFromLeft(100).reduced(3));
+    auto autoControls = area.removeFromTop(40);
+    autoScroll.setBounds(autoControls.removeFromLeft(130).reduced(3));
+    autoScrollSpeedLabel.setBounds(autoControls.removeFromLeft(55).reduced(3));
+    autoScrollSpeed.setBounds(autoControls.removeFromLeft(300).reduced(3));
     area.removeFromTop(4);
     lyrics.setBounds(area);
 }
@@ -124,6 +154,8 @@ void EditorPanel::moveCaretLine(int direction)
 
 void EditorPanel::timerCallback()
 {
+    autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);
+    autoScrollSpeed.setValue(processor.getAutoScrollLinesPerMinute(), juce::dontSendNotification);
     if (! shareScroll.getToggleState()) return;
     const auto text = lyrics.getText();
     processor.setSharedScrollLine(lineForCaret(nonEmptyLineStarts(text), lyrics.getCaretPosition()));

@@ -13,7 +13,8 @@ public:
 private:
     void timerCallback() override;
     VocLyricsAudioProcessor& processor;
-    juce::ToggleButton proportional { "Proportional text" }, clock { "Clock" };
+    juce::ToggleButton proportional { "Proportional text" }, clock { "Clock" }, autoScroll { "Auto scroll" };
+    juce::Slider autoScrollSpeed;
     juce::TextButton upButton { juce::String::charToString(0x2191) };
     juce::TextButton downButton { juce::String::charToString(0x2193) };
     std::array<juce::String, 5> visibleChords, visibleLyrics;

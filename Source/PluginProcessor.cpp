@@ -43,6 +43,22 @@ bool isDividerLine(const std::string& text)
     }
     return visible >= 3;
 }
+
+std::vector<int> displayLineStarts(const voclyrics::Song& song)
+{
+    std::vector<int> starts;
+    for (int i = 0; i < static_cast<int>(song.lyrics.size()); ++i)
+    {
+        if (song.lyrics[static_cast<std::size_t>(i)].isSection) continue;
+        if (isDividerLine(song.lyrics[static_cast<std::size_t>(i)].text)) continue;
+        starts.push_back(i);
+        if (isChordOnlyLine(song.lyrics[static_cast<std::size_t>(i)].text)
+            && i + 1 < static_cast<int>(song.lyrics.size())
+            && ! song.lyrics[static_cast<std::size_t>(i + 1)].isSection)
+            ++i;
+    }
+    return starts;
+}
 }
 
 VocLyricsAudioProcessor::VocLyricsAudioProcessor()
@@ -161,17 +177,7 @@ void VocLyricsAudioProcessor::moveSharedScrollLine(int direction)
     const juce::ScopedLock lock(modelLock);
     const auto* song = setlist.activeSong();
     if (song == nullptr || song->lyrics.empty()) return;
-    std::vector<int> starts;
-    for (int i = 0; i < static_cast<int>(song->lyrics.size()); ++i)
-    {
-        if (song->lyrics[static_cast<std::size_t>(i)].isSection) continue;
-        if (isDividerLine(song->lyrics[static_cast<std::size_t>(i)].text)) continue;
-        starts.push_back(i);
-        if (isChordOnlyLine(song->lyrics[static_cast<std::size_t>(i)].text)
-            && i + 1 < static_cast<int>(song->lyrics.size())
-            && ! song->lyrics[static_cast<std::size_t>(i + 1)].isSection)
-            ++i;
-    }
+    const auto starts = displayLineStarts(*song);
     if (starts.empty()) return;
     const auto current = server.scrollLine();
     auto position = 0;
@@ -180,6 +186,49 @@ void VocLyricsAudioProcessor::moveSharedScrollLine(int direction)
     const auto step = direction < 0 ? juce::jmin(-1, direction) : juce::jmax(1, direction);
     position = juce::jlimit(0, static_cast<int>(starts.size()) - 1, position + step);
     server.setScrollLine(starts[static_cast<std::size_t>(position)]);
+    if (autoScrollEnabled.load(std::memory_order_relaxed))
+        autoScrollLastTickMilliseconds = juce::Time::getMillisecondCounterHiRes();
+}
+
+void VocLyricsAudioProcessor::setSharedScrollController(int id)
+{
+    const auto bounded = juce::jmax(0, id);
+    if (bounded != 0) setAutoScrollEnabled(false);
+    server.setScrollController(bounded);
+}
+
+void VocLyricsAudioProcessor::setAutoScrollEnabled(bool enabled)
+{
+    if (! enabled)
+    {
+        autoScrollEnabled.store(false, std::memory_order_relaxed);
+        autoScrollLastTickMilliseconds = 0.0;
+        return;
+    }
+
+    if (server.scrollController() != 0) server.setScrollController(0);
+    const juce::ScopedLock lock(modelLock);
+    const auto* song = setlist.activeSong();
+    if (song == nullptr)
+    {
+        autoScrollEnabled.store(false, std::memory_order_relaxed);
+        return;
+    }
+    const auto starts = displayLineStarts(*song);
+    if (starts.empty())
+    {
+        autoScrollEnabled.store(false, std::memory_order_relaxed);
+        return;
+    }
+    if (server.scrollLine() < 0) server.setScrollLine(starts.front());
+    autoScrollLastTickMilliseconds = juce::Time::getMillisecondCounterHiRes();
+    autoScrollEnabled.store(true, std::memory_order_relaxed);
+}
+
+void VocLyricsAudioProcessor::setAutoScrollLinesPerMinute(int linesPerMinute)
+{
+    autoScrollLinesPerMinute.store(juce::jlimit(1, 60, linesPerMinute), std::memory_order_relaxed);
+    autoScrollLastTickMilliseconds = juce::Time::getMillisecondCounterHiRes();
 }
 
 void VocLyricsAudioProcessor::selectSong(int index)
@@ -304,6 +353,28 @@ void VocLyricsAudioProcessor::jumpToSong(int index)
 
 void VocLyricsAudioProcessor::timerCallback()
 {
+    if (autoScrollEnabled.load(std::memory_order_relaxed) && server.scrollController() == 0)
+    {
+        if (server.scrollLine() < 0)
+        {
+            setAutoScrollEnabled(true);
+        }
+        else
+        {
+            const auto now = juce::Time::getMillisecondCounterHiRes();
+            const auto interval = 60000.0 / static_cast<double>(autoScrollLinesPerMinute.load(std::memory_order_relaxed));
+            if (autoScrollLastTickMilliseconds <= 0.0) autoScrollLastTickMilliseconds = now;
+            if (now - autoScrollLastTickMilliseconds >= interval)
+            {
+                const auto previousLine = server.scrollLine();
+                moveSharedScrollLine(1);
+                if (server.scrollLine() == previousLine)
+                    setAutoScrollEnabled(false);
+                else
+                    autoScrollLastTickMilliseconds = now;
+            }
+        }
+    }
     if (isPlaying.load(std::memory_order_relaxed))
     {
         const juce::ScopedLock lock(modelLock);
@@ -363,6 +434,7 @@ void VocLyricsAudioProcessor::getStateInformation(juce::MemoryBlock& destination
     root.setProperty("port", server.port() > 0 ? server.port() : preferredPort, nullptr);
     root.setProperty("transposeSemitones", getTransposeSemitones(), nullptr);
     root.setProperty("hostRole", hostRole, nullptr);
+    root.setProperty("autoScrollLinesPerMinute", getAutoScrollLinesPerMinute(), nullptr);
     for (const auto& song : setlist.songs())
     {
         juce::ValueTree child("Song");
@@ -405,6 +477,8 @@ void VocLyricsAudioProcessor::setStateInformation(const void* data, int size)
     }
     setlist.replace(std::move(songs), static_cast<int>(root.getProperty("active", 0)));
     setTransposeSemitones(static_cast<int>(root.getProperty("transposeSemitones", 0)));
+    setAutoScrollLinesPerMinute(static_cast<int>(root.getProperty("autoScrollLinesPerMinute", 12)));
+    setAutoScrollEnabled(false);
     hostRole = root.getProperty("hostRole", "Main Singer").toString();
     updateServerState();
 }

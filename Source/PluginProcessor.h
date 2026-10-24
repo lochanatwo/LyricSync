@@ -75,6 +75,11 @@ public:
     int getSharedScrollLine() const { return server.scrollLine(); }
     bool hostControlsSharedScroll() const { return server.scrollController() == 0; }
     void moveSharedScrollLine(int direction);
+    void setSharedScrollController(int id);
+    bool isAutoScrollEnabled() const noexcept { return autoScrollEnabled.load(std::memory_order_relaxed); }
+    void setAutoScrollEnabled(bool enabled);
+    int getAutoScrollLinesPerMinute() const noexcept { return autoScrollLinesPerMinute.load(std::memory_order_relaxed); }
+    void setAutoScrollLinesPerMinute(int linesPerMinute);
 
 private:
     void publishTransport() noexcept;
@@ -88,6 +93,8 @@ private:
     std::atomic<bool> isPlaying { false };
     std::atomic<bool> isLooping { false };
     std::atomic<int> transposeSemitones { 0 };
+    std::atomic<bool> autoScrollEnabled { false };
+    std::atomic<int> autoScrollLinesPerMinute { 12 };
 
     mutable juce::CriticalSection modelLock;
     voclyrics::SetlistModel setlist;
@@ -97,6 +104,7 @@ private:
     int preferredPort = 8080;
     std::string lastAutoAdvancedId;
     juce::String hostRole { "Main Singer" };
+    double autoScrollLastTickMilliseconds = 0.0;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VocLyricsAudioProcessor)
 };

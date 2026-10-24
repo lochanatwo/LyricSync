@@ -114,10 +114,26 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
 {
     addAndMakeVisible(proportional);
     addAndMakeVisible(clock);
+    addAndMakeVisible(autoScroll);
+    addAndMakeVisible(autoScrollSpeed);
     addAndMakeVisible(upButton);
     addAndMakeVisible(downButton);
     upButton.onClick = [this] { processor.moveSharedScrollLine(-2); };
     downButton.onClick = [this] { processor.moveSharedScrollLine(2); };
+    autoScrollSpeed.setRange(1.0, 60.0, 1.0);
+    autoScrollSpeed.setValue(processor.getAutoScrollLinesPerMinute(), juce::dontSendNotification);
+    autoScrollSpeed.setTextValueSuffix(" lines/min");
+    autoScrollSpeed.setSliderStyle(juce::Slider::LinearHorizontal);
+    autoScrollSpeed.setTextBoxStyle(juce::Slider::TextBoxRight, false, 105, 24);
+    autoScrollSpeed.onValueChange = [this]
+    {
+        processor.setAutoScrollLinesPerMinute(juce::roundToInt(autoScrollSpeed.getValue()));
+    };
+    autoScroll.onClick = [this]
+    {
+        processor.setAutoScrollEnabled(autoScroll.getToggleState());
+        autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);
+    };
     for (auto* button : { &upButton, &downButton })
     {
         button->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1b2937));
@@ -193,6 +209,8 @@ void DisplayView::resized()
     auto top = getLocalBounds().removeFromTop(38).reduced(8, 4);
     proportional.setBounds(top.removeFromLeft(150));
     clock.setBounds(top.removeFromLeft(90));
+    autoScroll.setBounds(top.removeFromLeft(120));
+    autoScrollSpeed.setBounds(top.removeFromLeft(240));
     auto controls = getLocalBounds().removeFromRight(82).withSizeKeepingCentre(62, 154);
     upButton.setBounds(controls.removeFromTop(70));
     controls.removeFromTop(14);
@@ -254,6 +272,10 @@ void DisplayView::timerCallback()
     }
     clockText = juce::Time::getCurrentTime().formatted("%H:%M");
     const auto hostControls = processor.hostControlsSharedScroll();
+    autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);
+    autoScroll.setEnabled(hostControls);
+    autoScrollSpeed.setValue(processor.getAutoScrollLinesPerMinute(), juce::dontSendNotification);
+    autoScrollSpeed.setEnabled(hostControls);
     upButton.setEnabled(hostControls);
     downButton.setEnabled(hostControls);
     repaint();
