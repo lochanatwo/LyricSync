@@ -45,8 +45,8 @@
   const transposeBetween=(source,target)=>{let amount=(target-source+12)%12;if(amount>6)amount-=12;return amount;};
   const syncKeyControls=()=>{
     const select=$('target-key'),source=$('source-key');
-    if(originalKeyPitch<0){select.disabled=true;select.value='';source.textContent='KEY: add Key- A#';prefs.transpose=0;applyPreferences();return;}
-    select.disabled=false;source.textContent=`KEY: ${keyNames[originalKeyPitch]} →`;
+    if(originalKeyPitch<0){select.disabled=true;select.value='';source.textContent='Add Key- A#';prefs.transpose=0;applyPreferences();return;}
+    select.disabled=false;source.textContent=`Key- ${keyNames[originalKeyPitch]} →`;
     const preferenceKey=songPreferenceKey();
     let target=Number(prefs.targetKeys[preferenceKey]);
     if(!Number.isInteger(target)||target<0||target>11){target=(originalKeyPitch+prefs.transpose+120)%12;prefs.targetKeys[preferenceKey]=target;save();}

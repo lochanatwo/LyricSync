@@ -210,12 +210,12 @@ void EditorPanel::refreshKeyControls()
     transposeStatus.setText(juce::String("TRANSPOSED BY: ") + juce::String(semitones), juce::dontSendNotification);
     if (sourcePitch < 0)
     {
-        originalKeyStatus.setText("SONG KEY: add Key- A#", juce::dontSendNotification);
+        originalKeyStatus.setText("Add Key- A#", juce::dontSendNotification);
         transposeChoice.setEnabled(false);
         transposeChoice.setSelectedId(0, juce::dontSendNotification);
         return;
     }
-    originalKeyStatus.setText(juce::String("SONG KEY: ") + voclyrics::keyNameForPitchClass(sourcePitch).c_str(),
+    originalKeyStatus.setText(juce::String("Key- ") + voclyrics::keyNameForPitchClass(sourcePitch).c_str(),
                               juce::dontSendNotification);
     transposeChoice.setEnabled(true);
     const auto targetPitch = (sourcePitch + semitones + 120) % 12;

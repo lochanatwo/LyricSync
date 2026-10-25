@@ -267,9 +267,9 @@ void DisplayView::timerCallback()
     targetKeyChoice.setEnabled(sourcePitch >= 0);
     targetKeyChoice.setSelectedId(targetPitch >= 0 ? targetPitch + 1 : 0, juce::dontSendNotification);
     keyText = sourcePitch >= 0
-        ? juce::String("KEY: ") + voclyrics::keyNameForPitchClass(sourcePitch).c_str() + " → "
+        ? juce::String("Key- ") + voclyrics::keyNameForPitchClass(sourcePitch).c_str() + " → "
             + voclyrics::keyNameForPitchClass(targetPitch).c_str()
-        : juce::String("KEY: add Key- A#");
+        : juce::String("Add Key- A#");
     roleText = processor.getHostRole().toUpperCase();
     sectionText = "SONG";
     std::array<juce::String, 5> nextChords, nextLyrics;
