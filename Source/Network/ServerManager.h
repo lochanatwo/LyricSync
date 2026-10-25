@@ -37,6 +37,8 @@ struct RemoteState
     int scrollControllerId = 0;
     std::string hostRole;
     int activeLine = -1;
+    std::string songId;
+    int songKeyPitchClass = -1;
 };
 
 class ServerManager

@@ -38,9 +38,12 @@ void testLrcParser()
 void testLiveTaggerAndSetlist()
 {
     voclyrics::Song song;
-    song.lyrics = voclyrics::LrcParser::parse("[00:01.00]timed\nuntagged one\nuntagged two\n");
+    song.lyrics = voclyrics::LrcParser::parse("Key- A#\n[00:01.00]timed\nuntagged one\nuntagged two\n");
+    expect(voclyrics::songKeyPitchClass(song) == 10, "Song key line should recognize A#");
+    expect(voclyrics::transposeSemitonesForKeys(10, 11) == 1, "Target key should produce an integer semitone shift");
     voclyrics::LiveTagger tagger(song);
     expect(tagger.tagNext(12.345), "Live tag should timestamp the next untimed line");
+    expect(song.lyrics.front().timeSeconds < 0.0, "Live tagging must skip the song key line");
     expect(tagger.nextUntimedLine() >= 0, "Live tag should advance to the following untimed line");
     expect(tagger.undo(), "Live tag undo failed");
     expect(tagger.nextUntimedLine() >= 0, "Undo should restore an untimed line");

@@ -6,15 +6,24 @@
   const isStandalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
   if(isStandalone)document.documentElement.classList.add('standalone');
   const roles = ['Main Singer','Backup Singer','Main Guitar','Rythm Guitar','Drummer','Percussionist','Bass','Keys'];
+  const keyNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
   const key = 'voclyrics.remote.v2';
-  const defaults = {proportional:true, clock:false, nudge:0, transpose:0, role:''};
+  const defaults = {proportional:true, clock:false, nudge:0, transpose:0, role:'', targetKeys:{}};
   let prefs = {...defaults};
   try { prefs = {...defaults, ...JSON.parse(localStorage.getItem(key) || '{}')}; } catch (_) {}
   prefs.transpose = Number.isInteger(prefs.transpose) ? Math.max(-12, Math.min(12, prefs.transpose)) : 0;
+  if(!prefs.targetKeys||typeof prefs.targetKeys!=='object'||Array.isArray(prefs.targetKeys))prefs.targetKeys={};
   if (!roles.includes(prefs.role)) prefs.role = '';
-  let socket, state = null, rows = [], renderedLyrics = null, hostOffset = 0, retry = 0, wakeLock = null, clientId = 0, pointerY = null, lastActive = -2, polling = false;
+  let socket, state = null, rows = [], renderedLyrics = null, renderedSongId = '', originalKeyPitch = -1, hostOffset = 0, retry = 0, wakeLock = null, clientId = 0, pointerY = null, lastActive = -2, lastRenderedActive = -1, renderSequence = 0, polling = false;
   const save = () => localStorage.setItem(key, JSON.stringify(prefs));
+  const pitchForKey = (root,accidental='') => {
+    const natural={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
+    const base=natural[String(root).toUpperCase()]; if(!Number.isInteger(base))return -1;
+    return (base+(accidental==='#'?1:accidental==='b'?-1:0)+12)%12;
+  };
   const parse = source => source.split(/\r?\n/).map(line => {
+    const keyLine=line.match(/^\s*key\s*[-:]\s*([A-G])([#b]?)\s*$/i);
+    if(keyLine)return {time:-1,text:line,section:false,key:true,keyPitch:pitchForKey(keyLine[1],keyLine[2])};
     const m = line.match(/^\[(\d+):(\d{1,2})(?:[.,](\d{1,3}))?\](.*)$/);
     if (m) return {time:Number(m[1])*60+Number(m[2])+Number(('0.'+(m[3]||'0')).slice(0,5)), text:m[4], section:false};
     const section = line.match(/^\[([^\]]+)\]$/);
@@ -23,6 +32,7 @@
   const roleOptions = roles.map(role => `<option value="${role}">${role}</option>`).join('');
   $('role').innerHTML = roleOptions;
   $('role-first').innerHTML = `<option value="" disabled selected>Select your role</option>${roleOptions}`;
+  $('target-key').innerHTML=keyNames.map((name,index)=>`<option value="${index}">${name}</option>`).join('');
   const identify = () => { if (socket && socket.readyState === WebSocket.OPEN && prefs.role) socket.send(JSON.stringify({type:'hello',name:prefs.role})); };
   const chooseRole = role => { if (!roles.includes(role)) return; prefs.role=role; save(); applyPreferences(); $('role-setup').classList.add('hidden'); identify(); };
   const applyPreferences = () => {
@@ -30,6 +40,17 @@
     $('nudge-value').textContent=`${prefs.nudge} ms`; $('transpose-status').textContent=`TRANSPOSED BY: ${prefs.transpose}`;
     $('role').value=prefs.role; $('role-badge').textContent=(prefs.role||'Choose role').toUpperCase();
     screen.classList.toggle('fit-text',prefs.proportional);
+  };
+  const songPreferenceKey=()=>state&&state.songId?state.songId:(state&&state.title?`title:${state.title}`:'current');
+  const transposeBetween=(source,target)=>{let amount=(target-source+12)%12;if(amount>6)amount-=12;return amount;};
+  const syncKeyControls=()=>{
+    const select=$('target-key'),source=$('source-key');
+    if(originalKeyPitch<0){select.disabled=true;select.value='';source.textContent='KEY: add Key- A#';prefs.transpose=0;applyPreferences();return;}
+    select.disabled=false;source.textContent=`KEY: ${keyNames[originalKeyPitch]} →`;
+    const preferenceKey=songPreferenceKey();
+    let target=Number(prefs.targetKeys[preferenceKey]);
+    if(!Number.isInteger(target)||target<0||target>11){target=(originalKeyPitch+prefs.transpose+120)%12;prefs.targetKeys[preferenceKey]=target;save();}
+    prefs.transpose=transposeBetween(originalKeyPitch,target);select.value=String(target);applyPreferences();
   };
   const position = () => !state ? 0 : state.position + (state.playing ? Math.max(0,performance.now()+hostOffset+prefs.nudge-state.hostMs)/1000 : 0);
   const isChordOnly = text => {
@@ -49,6 +70,7 @@
     const result=[]; let section='';
     for(let index=0;index<rows.length;index+=1){
       if(rows[index].section){section=rows[index].text;continue;}
+      if(rows[index].key)continue;
       if(isDivider(rows[index].text))continue;
       if(isChordOnly(rows[index].text)&&index+1<rows.length&&!rows[index+1].section){
         result.push({index,chord:rows[index].text,text:rows[index+1].text,section}); index+=1;
@@ -84,13 +106,21 @@
     lyrics.style.fontSize=`${size}px`;
   };
   const renderRows = active => {
-    lyrics.replaceChildren();
     const blocks=lyricBlocks(); if (!blocks.length) return;
     let start=blocks.findIndex(block=>block.index>=active); if(start<0) start=Math.max(0,blocks.length-1);
     if(start>0&&blocks[start].index>active)start-=1;
     $('section-label').textContent=(blocks[start].section||'SONG').toUpperCase();
-    blocks.slice(start,start+5).forEach(block=>appendBlock(lyrics,block));
-    requestAnimationFrame(fitSheet);
+    const frame=document.createElement('div');frame.className='sheet-frame';
+    blocks.slice(start,start+5).forEach(block=>appendBlock(frame,block));
+    const oldFrames=[...lyrics.querySelectorAll('.sheet-frame')];
+    oldFrames.slice(0,-1).forEach(old=>old.remove());
+    const old=oldFrames.length?oldFrames[oldFrames.length-1]:null,direction=lastRenderedActive<0||active>=lastRenderedActive?1:-1;
+    lastRenderedActive=active;
+    if(!old){lyrics.replaceChildren(frame);requestAnimationFrame(fitSheet);return;}
+    const sequence=++renderSequence;
+    frame.classList.add(direction>0?'enter-below':'enter-above');lyrics.appendChild(frame);
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{old.classList.add(direction>0?'exit-up':'exit-down');frame.classList.add('slide-centre');fitSheet();}));
+    setTimeout(()=>{if(sequence!==renderSequence)return;old.remove();frame.className='sheet-frame';fitSheet();},440);
   };
   const draw = () => {
     if(state){
@@ -109,7 +139,14 @@
   const setConnection=(ok,message)=>{$('connection').classList.toggle('connected',ok);$('connection span').textContent=message;};
   const acceptMessage=data=>{
     if(data.type==='hello')clientId=Number(data.clientId)||0;
-    else if(data.type==='state'){state=data;if(renderedLyrics!==data.lyrics){renderedLyrics=data.lyrics;rows=parse(data.lyrics||'');lastActive=-2;}}
+    else if(data.type==='state'){
+      state=data;
+      if(renderedLyrics!==data.lyrics||renderedSongId!==(data.songId||'')){
+        renderedLyrics=data.lyrics;renderedSongId=data.songId||'';rows=parse(data.lyrics||'');
+        originalKeyPitch=Number.isInteger(data.songKey)?data.songKey:(rows.find(row=>row.key)?.keyPitch??-1);
+        syncKeyControls();lastActive=-2;lastRenderedActive=-1;
+      }
+    }
     else if(data.type==='pong'){const sent=Number(data.clientSent),received=performance.now(),measured=Number(data.hostMs)-(sent+received)/2;hostOffset+=(measured-hostOffset)*.2;}
     else if(data.type==='nudge'){prefs.nudge+=Number(data.delta)||0;save();applyPreferences();}
     else if(data.type==='reset'){prefs.nudge=0;save();applyPreferences();}
@@ -146,9 +183,11 @@
   screen.addEventListener('pointerup',event=>{if(pointerY===null)return;const distance=pointerY-event.clientY;if(Math.abs(distance)>22)controlScroll(distance>0?1:-1);pointerY=null;});
   screen.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)>0)controlScroll(event.deltaY>0?1:-1);},{passive:true});
   $('role-confirm').addEventListener('click',()=>chooseRole($('role-first').value)); $('role').addEventListener('change',e=>chooseRole(e.target.value));
-  const setTranspose=value=>{prefs.transpose=Math.max(-12,Math.min(12,value));save();applyPreferences();lastActive=-2;};
-  $('transpose-down').addEventListener('click',()=>setTranspose(prefs.transpose-1));
-  $('transpose-up').addEventListener('click',()=>setTranspose(prefs.transpose+1));
+  $('target-key').addEventListener('change',event=>{
+    const target=Number(event.target.value);if(originalKeyPitch<0||!Number.isInteger(target))return;
+    prefs.targetKeys[songPreferenceKey()]=target;prefs.transpose=transposeBetween(originalKeyPitch,target);
+    save();applyPreferences();lastActive=-2;
+  });
   $('proportional').addEventListener('change',e=>{prefs.proportional=e.target.checked;save();applyPreferences();}); $('show-clock').addEventListener('change',e=>{prefs.clock=e.target.checked;save();applyPreferences();});
   document.querySelectorAll('[data-nudge]').forEach(button=>button.addEventListener('click',()=>{prefs.nudge=button.dataset.nudge==='reset'?0:prefs.nudge+Number(button.dataset.nudge);save();applyPreferences();}));
   $('keep-awake').addEventListener('click',requestWakeLock); document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')requestWakeLock();});

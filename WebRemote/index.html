@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="VocLyrics">
   <title>VocLyrics Live</title>
-  <link rel="manifest" href="/manifest.json?v=7">
-  <link rel="stylesheet" href="/style.css?v=7">
+  <link rel="manifest" href="/manifest.json?v=8">
+  <link rel="stylesheet" href="/style.css?v=8">
 </head>
 <body>
   <main id="screen" aria-live="polite">
@@ -21,7 +21,7 @@
     <header><div id="song">VocLyrics</div></header>
     <section class="stage">
       <article class="now-card">
-        <div class="eyebrow"><span>NOW</span><div class="transpose-control"><button id="transpose-down" aria-label="Transpose down one semitone">−</button><strong id="transpose-status">TRANSPOSED BY: 0</strong><button id="transpose-up" aria-label="Transpose up one semitone">+</button></div></div>
+        <div class="eyebrow"><span>NOW</span><div class="transpose-control"><label><span id="source-key">KEY: — →</span><select id="target-key" aria-label="Transpose to key"></select></label><strong id="transpose-status">TRANSPOSED BY: 0</strong></div></div>
         <div id="section-label">SONG</div>
         <div id="lyrics"></div>
       </article>
@@ -48,6 +48,6 @@
   <section id="ios-fullscreen-help" class="ios-help hidden" aria-modal="true">
     <div class="ios-dialog"><h2>Fullscreen on iPhone</h2><p>Apple opens local web apps fullscreen from the Home Screen.</p><ol><li>Tap the browser’s <strong>Share</strong> button.</li><li>Choose <strong>Add to Home Screen</strong>.</li><li>Open <strong>VocLyrics</strong> from your Home Screen.</li></ol><button id="ios-help-close">Got it</button></div>
   </section>
-  <script src="/app.js?v=7"></script>
+  <script src="/app.js?v=8"></script>
 </body>
 </html>

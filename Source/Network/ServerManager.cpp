@@ -424,6 +424,7 @@ std::string ServerManager::makePayload(const RemoteState& value)
 {
     std::ostringstream out;
     out << "{\"type\":\"state\",\"title\":\"" << escapeJson(value.songTitle)
+        << "\",\"songId\":\"" << escapeJson(value.songId)
         << "\",\"next\":\"" << escapeJson(value.nextSongTitle)
         << "\",\"lyrics\":\"" << escapeJson(value.lyricsLrc)
         << "\",\"position\":" << value.positionSeconds
@@ -433,7 +434,8 @@ std::string ServerManager::makePayload(const RemoteState& value)
         << ",\"controllerId\":" << value.scrollControllerId
         << ",\"scrollLine\":" << value.scrollLine
         << ",\"hostRole\":\"" << escapeJson(value.hostRole)
-        << "\",\"activeLine\":" << value.activeLine << '}';
+        << "\",\"songKey\":" << value.songKeyPitchClass
+        << ",\"activeLine\":" << value.activeLine << '}';
     return out.str();
 }
 std::string ServerManager::escapeJson(const std::string& value)

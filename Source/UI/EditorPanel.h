@@ -20,9 +20,11 @@ private:
     juce::ToggleButton autoScroll { "Auto scroll" };
     juce::Label autoScrollSpeedLabel;
     juce::Slider autoScrollSpeed;
+    juce::Label originalKeyStatus;
     juce::Label transposeStatus;
     juce::ComboBox transposeChoice;
     std::unique_ptr<juce::FileChooser> chooser;
     void moveSection(int direction);
     void moveCaretLine(int direction);
+    void refreshKeyControls();
 };

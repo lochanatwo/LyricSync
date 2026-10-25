@@ -46,8 +46,10 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
     addAndMakeVisible(autoScroll);
     addAndMakeVisible(autoScrollSpeedLabel);
     addAndMakeVisible(autoScrollSpeed);
+    addAndMakeVisible(originalKeyStatus);
     addAndMakeVisible(transposeStatus);
     addAndMakeVisible(transposeChoice);
+    originalKeyStatus.setJustificationType(juce::Justification::centredLeft);
     transposeStatus.setJustificationType(juce::Justification::centredLeft);
     autoScrollSpeedLabel.setText("Speed", juce::dontSendNotification);
     autoScrollSpeedLabel.setJustificationType(juce::Justification::centredLeft);
@@ -67,15 +69,17 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
         processor.setAutoScrollEnabled(enabled);
         autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);
     };
-    for (int semitones = -12; semitones <= 12; ++semitones)
-        transposeChoice.addItem(juce::String(semitones), semitones + 13);
-    transposeChoice.setSelectedId(processor.getTransposeSemitones() + 13, juce::dontSendNotification);
-    transposeStatus.setText(juce::String("TRANSPOSED BY: ") + juce::String(processor.getTransposeSemitones()), juce::dontSendNotification);
+    for (int pitch = 0; pitch < 12; ++pitch)
+        transposeChoice.addItem(juce::String(voclyrics::keyNameForPitchClass(pitch).c_str()), pitch + 1);
     transposeChoice.onChange = [this]
     {
-        const auto semitones = transposeChoice.getSelectedId() - 13;
-        processor.setTransposeSemitones(semitones);
-        transposeStatus.setText(juce::String("TRANSPOSED BY: ") + juce::String(processor.getTransposeSemitones()), juce::dontSendNotification);
+        const auto model = processor.getSetlistSnapshot();
+        const auto* song = model.activeSong();
+        const auto sourcePitch = song != nullptr ? voclyrics::songKeyPitchClass(*song) : -1;
+        const auto targetPitch = transposeChoice.getSelectedId() - 1;
+        if (sourcePitch >= 0 && targetPitch >= 0)
+            processor.setTransposeSemitones(voclyrics::transposeSemitonesForKeys(sourcePitch, targetPitch));
+        refreshKeyControls();
     };
     previousSection.onClick = [this] { moveSection(-1); };
     nextSection.onClick = [this] { moveSection(1); };
@@ -130,8 +134,9 @@ void EditorPanel::resized()
     shareScroll.setBounds(sharedControls.removeFromLeft(130).reduced(3));
     previousLine.setBounds(sharedControls.removeFromLeft(125).reduced(3));
     nextLine.setBounds(sharedControls.removeFromLeft(125).reduced(3));
-    transposeStatus.setBounds(sharedControls.removeFromLeft(175).reduced(3));
-    transposeChoice.setBounds(sharedControls.removeFromLeft(100).reduced(3));
+    originalKeyStatus.setBounds(sharedControls.removeFromLeft(150).reduced(3));
+    transposeStatus.setBounds(sharedControls.removeFromLeft(165).reduced(3));
+    transposeChoice.setBounds(sharedControls.removeFromLeft(95).reduced(3));
     auto autoControls = area.removeFromTop(40);
     autoScroll.setBounds(autoControls.removeFromLeft(130).reduced(3));
     autoScrollSpeedLabel.setBounds(autoControls.removeFromLeft(55).reduced(3));
@@ -154,6 +159,7 @@ void EditorPanel::moveCaretLine(int direction)
 
 void EditorPanel::timerCallback()
 {
+    refreshKeyControls();
     autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);
     autoScrollSpeed.setValue(processor.getAutoScrollLinesPerMinute(), juce::dontSendNotification);
     if (! shareScroll.getToggleState()) return;
@@ -192,4 +198,26 @@ void EditorPanel::loadFromProcessor()
 {
     const auto text = processor.getLyricsText();
     if (lyrics.getText() != text) lyrics.setText(text, false);
+    refreshKeyControls();
+}
+
+void EditorPanel::refreshKeyControls()
+{
+    const auto model = processor.getSetlistSnapshot();
+    const auto* song = model.activeSong();
+    const auto sourcePitch = song != nullptr ? voclyrics::songKeyPitchClass(*song) : -1;
+    const auto semitones = processor.getTransposeSemitones();
+    transposeStatus.setText(juce::String("TRANSPOSED BY: ") + juce::String(semitones), juce::dontSendNotification);
+    if (sourcePitch < 0)
+    {
+        originalKeyStatus.setText("SONG KEY: add Key- A#", juce::dontSendNotification);
+        transposeChoice.setEnabled(false);
+        transposeChoice.setSelectedId(0, juce::dontSendNotification);
+        return;
+    }
+    originalKeyStatus.setText(juce::String("SONG KEY: ") + voclyrics::keyNameForPitchClass(sourcePitch).c_str(),
+                              juce::dontSendNotification);
+    transposeChoice.setEnabled(true);
+    const auto targetPitch = (sourcePitch + semitones + 120) % 12;
+    transposeChoice.setSelectedId(targetPitch + 1, juce::dontSendNotification);
 }

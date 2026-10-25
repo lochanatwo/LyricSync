@@ -49,7 +49,8 @@ std::vector<int> displayLineStarts(const voclyrics::Song& song)
     std::vector<int> starts;
     for (int i = 0; i < static_cast<int>(song.lyrics.size()); ++i)
     {
-        if (song.lyrics[static_cast<std::size_t>(i)].isSection) continue;
+        if (song.lyrics[static_cast<std::size_t>(i)].isSection
+            || voclyrics::isSongKeyLine(song.lyrics[static_cast<std::size_t>(i)].text)) continue;
         if (isDividerLine(song.lyrics[static_cast<std::size_t>(i)].text)) continue;
         starts.push_back(i);
         if (isChordOnlyLine(song.lyrics[static_cast<std::size_t>(i)].text)
@@ -403,8 +404,10 @@ void VocLyricsAudioProcessor::updateServerState()
     const auto* song = setlist.activeSong();
     if (song != nullptr)
     {
+        remote.songId = song->id;
         remote.songTitle = song->title;
         remote.lyricsLrc = voclyrics::LrcParser::serialize(song->lyrics);
+        remote.songKeyPitchClass = voclyrics::songKeyPitchClass(*song);
         const auto next = setlist.activeIndex() + 1;
         if (next < static_cast<int>(setlist.songs().size()))
             remote.nextSongTitle = setlist.songs()[static_cast<std::size_t>(next)].title;

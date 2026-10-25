@@ -1,5 +1,6 @@
 #include "DisplayView.h"
 #include "Lyrics/LrcParser.h"
+#include <cmath>
 #include <cctype>
 #include <sstream>
 #include <utility>
@@ -116,6 +117,7 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
     addAndMakeVisible(clock);
     addAndMakeVisible(autoScroll);
     addAndMakeVisible(autoScrollSpeed);
+    addAndMakeVisible(targetKeyChoice);
     addAndMakeVisible(upButton);
     addAndMakeVisible(downButton);
     upButton.onClick = [this] { processor.moveSharedScrollLine(-2); };
@@ -134,6 +136,18 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
         processor.setAutoScrollEnabled(autoScroll.getToggleState());
         autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);
     };
+    targetKeyChoice.setTextWhenNothingSelected("Target key");
+    for (int pitch = 0; pitch < 12; ++pitch)
+        targetKeyChoice.addItem(juce::String(voclyrics::keyNameForPitchClass(pitch).c_str()), pitch + 1);
+    targetKeyChoice.onChange = [this]
+    {
+        const auto model = processor.getSetlistSnapshot();
+        const auto* song = model.activeSong();
+        const auto sourcePitch = song != nullptr ? voclyrics::songKeyPitchClass(*song) : -1;
+        const auto targetPitch = targetKeyChoice.getSelectedId() - 1;
+        if (sourcePitch >= 0 && targetPitch >= 0)
+            processor.setTransposeSemitones(voclyrics::transposeSemitonesForKeys(sourcePitch, targetPitch));
+    };
     for (auto* button : { &upButton, &downButton })
     {
         button->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1b2937));
@@ -151,7 +165,8 @@ void DisplayView::paint(juce::Graphics& g)
 
     g.setColour(juce::Colour(0xff92a0b5));
     g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
-    g.drawText(roleText + "  |  " + transposeText, 40, 42, getWidth() - 80, 22, juce::Justification::centred);
+    g.drawText(roleText + "  |  " + keyText + "  |  " + transposeText,
+               40, 42, getWidth() - 80, 22, juce::Justification::centred);
     g.setColour(juce::Colour(0xfff5f7fa));
     g.setFont(juce::FontOptions(22.0f, juce::Font::bold));
     g.drawText(titleText, 40, 66, getWidth() - 80, 30, juce::Justification::centred);
@@ -178,25 +193,42 @@ void DisplayView::paint(juce::Graphics& g)
     const auto lyricSize = proportional.getToggleState()
         ? juce::jlimit(17.0f, 38.0f, static_cast<float>(rowHeight) * 0.42f)
         : juce::jlimit(17.0f, 32.0f, static_cast<float>(rowHeight) * 0.36f);
-    for (std::size_t i = 0; i < visibleLyrics.size(); ++i)
+    const auto drawRows = [&](const std::array<juce::String, 5>& chords,
+                              const std::array<juce::String, 5>& lyricLines, float offset)
     {
-        auto row = currentArea.removeFromTop(rowHeight);
-        auto chordArea = row.removeFromTop(juce::jlimit(18, 31, row.getHeight() / 3));
-        if (i == 0)
+        auto area = currentArea.translated(0, juce::roundToInt(offset));
+        const juce::Graphics::ScopedSaveState save(g);
+        g.reduceClipRegion(currentArea);
+        for (std::size_t i = 0; i < lyricLines.size(); ++i)
         {
-            g.setColour(juce::Colour(0x1658e0b6));
-            g.fillRoundedRectangle(juce::Rectangle<float>(static_cast<float>(sheet.getX() + 12),
-                                                          static_cast<float>(chordArea.getY() - 4),
-                                                          static_cast<float>(sheet.getWidth() - 24),
-                                                          static_cast<float>(rowHeight - 2)), 9.0f);
+            auto row = area.removeFromTop(rowHeight);
+            auto chordArea = row.removeFromTop(juce::jlimit(18, 31, row.getHeight() / 3));
+            if (i == 0)
+            {
+                g.setColour(juce::Colour(0x1658e0b6));
+                g.fillRoundedRectangle(juce::Rectangle<float>(static_cast<float>(sheet.getX() + 12),
+                                                              static_cast<float>(chordArea.getY() - 4),
+                                                              static_cast<float>(sheet.getWidth() - 24),
+                                                              static_cast<float>(rowHeight - 2)), 9.0f);
+            }
+            g.setColour(juce::Colour(0xffd94712));
+            g.setFont(juce::FontOptions(juce::jlimit(15.0f, 25.0f, lyricSize * 0.72f), juce::Font::bold));
+            g.drawFittedText(chords[i], chordArea, juce::Justification::centredLeft, 1);
+            g.setColour(juce::Colour(0xff111827));
+            g.setFont(juce::FontOptions(lyricSize, i == 0 ? juce::Font::bold : juce::Font::plain));
+            g.drawFittedText(lyricLines[i], row, juce::Justification::centredLeft, 1);
         }
-        g.setColour(juce::Colour(0xffd94712));
-        g.setFont(juce::FontOptions(juce::jlimit(15.0f, 25.0f, lyricSize * 0.72f), juce::Font::bold));
-        g.drawFittedText(visibleChords[i], chordArea, juce::Justification::centredLeft, 1);
-        g.setColour(juce::Colour(0xff111827));
-        g.setFont(juce::FontOptions(lyricSize, i == 0 ? juce::Font::bold : juce::Font::plain));
-        g.drawFittedText(visibleLyrics[i], row, juce::Justification::centredLeft, 1);
+    };
+    if (animationStartMilliseconds > 0.0)
+    {
+        const auto elapsed = juce::Time::getMillisecondCounterHiRes() - animationStartMilliseconds;
+        const auto linear = juce::jlimit(0.0f, 1.0f, static_cast<float>(elapsed / 420.0));
+        const auto eased = 1.0f - std::pow(1.0f - linear, 3.0f);
+        const auto distance = static_cast<float>(rowHeight * animationRows * animationDirection);
+        drawRows(previousChords, previousLyrics, -distance * eased);
+        drawRows(visibleChords, visibleLyrics, distance * (1.0f - eased));
     }
+    else drawRows(visibleChords, visibleLyrics, 0.0f);
     if (clock.getToggleState())
     {
         g.setColour(juce::Colour(0xff9aa4b2));
@@ -211,6 +243,7 @@ void DisplayView::resized()
     clock.setBounds(top.removeFromLeft(90));
     autoScroll.setBounds(top.removeFromLeft(120));
     autoScrollSpeed.setBounds(top.removeFromLeft(240));
+    targetKeyChoice.setBounds(top.removeFromLeft(120));
     auto controls = getLocalBounds().removeFromRight(82).withSizeKeepingCentre(62, 154);
     upButton.setBounds(controls.removeFromTop(70));
     controls.removeFromTop(14);
@@ -220,12 +253,27 @@ void DisplayView::timerCallback()
 {
     const auto model = processor.getSetlistSnapshot();
     const auto* song = model.activeSong();
+    const auto songId = song != nullptr ? juce::String(song->id.c_str()) : juce::String();
+    if (songId != displayedSongId)
+    {
+        displayedSongId = songId;
+        displaySourceIndex = -1;
+        animationStartMilliseconds = 0.0;
+    }
     titleText = song != nullptr ? song->title : "VocLyrics";
     transposeText = juce::String("TRANSPOSED BY: ") + juce::String(processor.getTransposeSemitones());
+    const auto sourcePitch = song != nullptr ? voclyrics::songKeyPitchClass(*song) : -1;
+    const auto targetPitch = sourcePitch >= 0 ? (sourcePitch + processor.getTransposeSemitones() + 120) % 12 : -1;
+    targetKeyChoice.setEnabled(sourcePitch >= 0);
+    targetKeyChoice.setSelectedId(targetPitch >= 0 ? targetPitch + 1 : 0, juce::dontSendNotification);
+    keyText = sourcePitch >= 0
+        ? juce::String("KEY: ") + voclyrics::keyNameForPitchClass(sourcePitch).c_str() + " → "
+            + voclyrics::keyNameForPitchClass(targetPitch).c_str()
+        : juce::String("KEY: add Key- A#");
     roleText = processor.getHostRole().toUpperCase();
     sectionText = "SONG";
-    for (auto* collection : { &visibleChords, &visibleLyrics })
-        for (auto& text : *collection) text.clear();
+    std::array<juce::String, 5> nextChords, nextLyrics;
+    auto nextSourceIndex = -1;
     if (song != nullptr && ! song->lyrics.empty())
     {
         auto position = processor.getTransportSnapshot().positionSeconds;
@@ -244,7 +292,7 @@ void DisplayView::timerCallback()
                 currentSection = juce::String(line.text).toUpperCase();
                 continue;
             }
-            if (isDividerLine(line.text)) continue;
+            if (isDividerLine(line.text) || voclyrics::isSongKeyLine(line.text)) continue;
             DisplayBlock block;
             block.sourceIndex = i;
             block.section = currentSection;
@@ -263,13 +311,34 @@ void DisplayView::timerCallback()
         std::size_t start = 0;
         for (std::size_t i = 0; i < blocks.size(); ++i)
             if (blocks[i].sourceIndex <= active) start = i;
-        if (! blocks.empty()) sectionText = blocks[start].section;
+        if (! blocks.empty())
+        {
+            sectionText = blocks[start].section;
+            nextSourceIndex = static_cast<int>(start);
+        }
         for (std::size_t i = 0; i < visibleLyrics.size() && start + i < blocks.size(); ++i)
         {
-            visibleChords[i] = transposeChordLine(blocks[start + i].chords, processor.getTransposeSemitones());
-            visibleLyrics[i] = blocks[start + i].lyrics;
+            nextChords[i] = transposeChordLine(blocks[start + i].chords, processor.getTransposeSemitones());
+            nextLyrics[i] = blocks[start + i].lyrics;
         }
     }
+    if (nextSourceIndex != displaySourceIndex)
+    {
+        if (displaySourceIndex >= 0 && nextSourceIndex >= 0)
+        {
+            previousChords = visibleChords;
+            previousLyrics = visibleLyrics;
+            animationDirection = nextSourceIndex > displaySourceIndex ? 1 : -1;
+            animationRows = juce::jlimit(1, 5, std::abs(nextSourceIndex - displaySourceIndex));
+            animationStartMilliseconds = juce::Time::getMillisecondCounterHiRes();
+        }
+        displaySourceIndex = nextSourceIndex;
+    }
+    visibleChords = std::move(nextChords);
+    visibleLyrics = std::move(nextLyrics);
+    if (animationStartMilliseconds > 0.0
+        && juce::Time::getMillisecondCounterHiRes() - animationStartMilliseconds >= 420.0)
+        animationStartMilliseconds = 0.0;
     clockText = juce::Time::getCurrentTime().formatted("%H:%M");
     const auto hostControls = processor.hostControlsSharedScroll();
     autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);

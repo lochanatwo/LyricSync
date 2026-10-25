@@ -11,22 +11,24 @@ VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves
 - Starts an embedded HTTP/WebSocket server on the LAN, searches subsequent ports when a port is busy, embeds the remote web app, and limits connections to eight.
 - Viewer assets are served with no-cache headers and a versioned URL so phones cannot mix old HTML with new JavaScript. A low-latency HTTP state fallback keeps lyrics updating when a browser or network blocks WebSockets.
 - Per-device output queues replace stale messages. A slow client has an independent sender thread and cannot block the audio callback or other device queues.
-- Each remote device can independently select an integer semitone shift from -12 to +12. Its screen shows `TRANSPOSED BY: N` and immediately rewrites the displayed chord names for that device; the setting stays on that device and does not change other screens. The desktop host has its own transpose selector, chord rendering and status.
+- Put a song-key line such as `Key- A#` anywhere in the song. VocLyrics recognizes sharp or flat keys, keeps that metadata out of the performance lyrics, and uses it as the source key for transposition.
+- Each remote device independently chooses its target from all 12 chromatic keys: C, C#, D, D#, E, F, F#, G, G#, A, A# and B. The target choice is remembered separately for each song and device, immediately rewrites that device's chord names, and does not change other screens. The desktop host has the same key-based choice.
 - The host and each remote viewer choose a band role: Main Singer, Backup Singer, Main Guitar, Rythm Guitar, Drummer, Percussionist, Bass or Keys. Remote roles identify connected screens in the host device list.
 - Viewer screens use one large modern chord-sheet card with monospaced, position-aligned chords above five lyric rows and a section badge such as `CHORUS`. The **Up next** panel has been removed so the sheet fills the available screen, and each large arrow moves it by two lyric rows.
-- Each viewer has visible transpose minus/plus buttons at the top of the chord sheet. The exact integer value is always shown as `TRANSPOSED BY: N`, with no need to open display settings.
+- Each viewer has its original key and target-key selector at the top of the chord sheet. The exact signed integer shift is always shown as `TRANSPOSED BY: N`, with no need to open display settings.
 - Desktop performance view uses the same chord-sheet layout with five visible chord and lyric rows. Its **Performance view** button always opens and closes the view, and its arrows also move exactly two rows.
-- Host-controlled automatic scrolling is available in both the editor and performance view. Set a speed from 1 to 60 lyric rows per minute and press **Auto scroll**; every connected display follows the same row, and scrolling stops at the end of the song.
+- Host-controlled automatic scrolling is available in both the editor and performance view. Set a speed from 1 to 60 lyric rows per minute and press **Auto scroll**; every connected display follows the same row, and scrolling stops at the end of the song. Chord-sheet rows glide upward during forward movement and reverse smoothly when moving back.
 - Browser display modes, automatic phone-width chord-sheet fitting, Android fullscreen, iPhone Home Screen fullscreen mode, local clock, proportional text, supported screen wake lock, reconnect, latency estimation and per-device sync nudge are available.
 - A ninth device is refused and shown a friendly maximum-device message by the browser view.
 - The host publishes one authoritative active lyric row with every state update, so all WebSocket and HTTP-fallback viewers choose the same row instead of calculating it independently.
 - The standalone desktop app runs without a DAW; the host chooses **Desktop host** or any connected device as the single shared-scroll controller. Only that selected device can scroll, and all connected displays follow. Remote devices use a small visible lyric window to limit page memory use.
 
-Transpose changes the chord names shown on that screen and does not pitch-shift audio. Each screen can select an integer shift from -12 to +12 semitones, and the visible value uses the exact `TRANSPOSED BY: N` format. The host's transpose choice is stored in the project, while each remote device stores its own choice locally.
+Transpose changes the chord names shown on that screen and does not pitch-shift audio. Add a line such as `Key- A#` to identify the original song key, then choose the target key directly. The visible amount uses the exact `TRANSPOSED BY: N` format. The host's choice is stored in the project, while each remote device stores its own target for each song locally.
 
 For chords, put a chord-only line immediately above its lyric line. VocLyrics groups that pair into one display line, for example:
 
 ```text
+Key- A#
 [CHORUS]
 A                         E
 Ratakin ehaa agilee, thaniwenna bea

@@ -16,4 +16,9 @@ struct Song
 };
 
 int activeLineAt(const Song& song, double seconds);
+int keyPitchClass(const std::string& text);
+int songKeyPitchClass(const Song& song);
+bool isSongKeyLine(const std::string& text);
+std::string keyNameForPitchClass(int pitchClass);
+int transposeSemitonesForKeys(int sourcePitchClass, int targetPitchClass);
 }

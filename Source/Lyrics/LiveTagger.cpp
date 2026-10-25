@@ -5,7 +5,8 @@ namespace voclyrics
 int LiveTagger::nextUntimedLine() const
 {
     for (std::size_t i = 0; i < target.lyrics.size(); ++i)
-        if (! target.lyrics[i].isSection && target.lyrics[i].timeSeconds < 0.0)
+        if (! target.lyrics[i].isSection && ! isSongKeyLine(target.lyrics[i].text)
+            && target.lyrics[i].timeSeconds < 0.0)
             return static_cast<int>(i);
     return -1;
 }
