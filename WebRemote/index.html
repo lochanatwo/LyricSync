@@ -8,8 +8,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="VocLyrics">
   <title>VocLyrics Live</title>
-  <link rel="manifest" href="/manifest.json?v=6">
-  <link rel="stylesheet" href="/style.css?v=6">
+  <link rel="manifest" href="/manifest.json?v=7">
+  <link rel="stylesheet" href="/style.css?v=7">
 </head>
 <body>
   <main id="screen" aria-live="polite">
@@ -18,16 +18,12 @@
       <div class="brand"><i></i><span>VOCLYRICS</span><small>LIVE</small></div>
       <div class="nav-right"><span id="role-badge">CHOOSE ROLE</span><div id="connection"><i></i><span>Connecting</span></div></div>
     </nav>
-    <header><div id="song">VocLyrics</div><div id="next-song"></div></header>
+    <header><div id="song">VocLyrics</div></header>
     <section class="stage">
       <article class="now-card">
-        <div class="eyebrow"><span>NOW</span><strong id="transpose-status">TRANSPOSED BY: 0</strong></div>
+        <div class="eyebrow"><span>NOW</span><div class="transpose-control"><button id="transpose-down" aria-label="Transpose down one semitone">−</button><strong id="transpose-status">TRANSPOSED BY: 0</strong><button id="transpose-up" aria-label="Transpose up one semitone">+</button></div></div>
         <div id="section-label">SONG</div>
         <div id="lyrics"></div>
-      </article>
-      <article class="next-card">
-        <div class="eyebrow"><span>UP NEXT</span></div>
-        <div id="up-next"></div>
       </article>
     </section>
     <div class="scroll-controls" aria-label="Shared lyric scroll controls">
@@ -40,7 +36,6 @@
     <aside id="settings" class="hidden">
       <h2>Display settings</h2>
       <label>Your band role<select id="role"></select></label>
-      <label>Transpose by<select id="transpose"></select></label>
       <label class="check"><input type="checkbox" id="proportional"> Fit text automatically</label>
       <label class="check"><input type="checkbox" id="show-clock"> Show clock</label>
       <label>Sync nudge <span id="nudge-value">0 ms</span><div class="nudge"><button data-nudge="-50">− 50 ms</button><button data-nudge="reset">Reset</button><button data-nudge="50">+ 50 ms</button></div></label>
@@ -53,6 +48,6 @@
   <section id="ios-fullscreen-help" class="ios-help hidden" aria-modal="true">
     <div class="ios-dialog"><h2>Fullscreen on iPhone</h2><p>Apple opens local web apps fullscreen from the Home Screen.</p><ol><li>Tap the browser’s <strong>Share</strong> button.</li><li>Choose <strong>Add to Home Screen</strong>.</li><li>Open <strong>VocLyrics</strong> from your Home Screen.</li></ol><button id="ios-help-close">Got it</button></div>
   </section>
-  <script src="/app.js?v=6"></script>
+  <script src="/app.js?v=7"></script>
 </body>
 </html>

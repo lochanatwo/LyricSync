@@ -1,7 +1,7 @@
 (() => {
   'use strict';
   const $ = id => document.getElementById(id);
-  const screen = $('screen'), lyrics = $('lyrics'), upNext = $('up-next'), settings = $('settings');
+  const screen = $('screen'), lyrics = $('lyrics'), settings = $('settings');
   const isIOS=/iPhone|iPad|iPod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
   const isStandalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
   if(isStandalone)document.documentElement.classList.add('standalone');
@@ -23,12 +23,11 @@
   const roleOptions = roles.map(role => `<option value="${role}">${role}</option>`).join('');
   $('role').innerHTML = roleOptions;
   $('role-first').innerHTML = `<option value="" disabled selected>Select your role</option>${roleOptions}`;
-  $('transpose').innerHTML = Array.from({length:25}, (_,i) => i - 12).map(value => `<option value="${value}">${value}</option>`).join('');
   const identify = () => { if (socket && socket.readyState === WebSocket.OPEN && prefs.role) socket.send(JSON.stringify({type:'hello',name:prefs.role})); };
   const chooseRole = role => { if (!roles.includes(role)) return; prefs.role=role; save(); applyPreferences(); $('role-setup').classList.add('hidden'); identify(); };
   const applyPreferences = () => {
     $('proportional').checked=prefs.proportional; $('show-clock').checked=prefs.clock; $('clock').style.display=prefs.clock?'':'none';
-    $('nudge-value').textContent=`${prefs.nudge} ms`; $('transpose').value=String(prefs.transpose); $('transpose-status').textContent=`TRANSPOSED BY: ${prefs.transpose}`;
+    $('nudge-value').textContent=`${prefs.nudge} ms`; $('transpose-status').textContent=`TRANSPOSED BY: ${prefs.transpose}`;
     $('role').value=prefs.role; $('role-badge').textContent=(prefs.role||'Choose role').toUpperCase();
     screen.classList.toggle('fit-text',prefs.proportional);
   };
@@ -70,28 +69,27 @@
     return changed;
   };
   const transposeChordLine = line => line.split(/(\s+)/).map(part=>/^\s+$/.test(part)?part:transposeChord(part,prefs.transpose)).join('');
-  const appendBlock = (parent,block,preview) => {
-    const wrapper=document.createElement('div'); wrapper.className=preview?'lyric-block preview-block':'lyric-block';
+  const appendBlock = (parent,block) => {
+    const wrapper=document.createElement('div'); wrapper.className='lyric-block';
     const chord=document.createElement('div'); chord.className='chord-row'; chord.textContent=block.chord?transposeChordLine(block.chord):'\u00a0';
-    const text=document.createElement('div'); text.className=preview?'lyric-row preview-line':'lyric-row'; text.textContent=block.text;
+    const text=document.createElement('div'); text.className='lyric-row'; text.textContent=block.text;
     wrapper.append(chord,text); parent.appendChild(wrapper);
   };
   const fitSheet = () => {
     const card=document.querySelector('.now-card'); if(!card)return;
     const lines=[...lyrics.querySelectorAll('.chord-row,.lyric-row')]; if(!lines.length)return;
     const longest=Math.max(8,...lines.map(line=>line.textContent.length));
-    const width=Math.max(180,card.clientWidth-48),height=Math.max(150,card.clientHeight-100);
-    const size=Math.max(11,Math.min(46,Math.floor(width/(longest*.61)),Math.floor(height/12)));
+    const width=Math.max(180,card.clientWidth-56),height=Math.max(150,card.clientHeight-92);
+    const size=Math.max(13,Math.min(64,Math.floor(width/(longest*.58)),Math.floor(height/10.5)));
     lyrics.style.fontSize=`${size}px`;
   };
   const renderRows = active => {
-    lyrics.replaceChildren(); upNext.replaceChildren();
+    lyrics.replaceChildren();
     const blocks=lyricBlocks(); if (!blocks.length) return;
     let start=blocks.findIndex(block=>block.index>=active); if(start<0) start=Math.max(0,blocks.length-1);
     if(start>0&&blocks[start].index>active)start-=1;
     $('section-label').textContent=(blocks[start].section||'SONG').toUpperCase();
-    blocks.slice(start,start+5).forEach(block=>appendBlock(lyrics,block,false));
-    blocks.slice(start+5,start+7).forEach(block=>appendBlock(upNext,block,true));
+    blocks.slice(start,start+5).forEach(block=>appendBlock(lyrics,block));
     requestAnimationFrame(fitSheet);
   };
   const draw = () => {
@@ -100,7 +98,7 @@
       if(Number.isInteger(state.activeLine)&&state.activeLine>=0) active=Math.min(state.activeLine,Math.max(0,rows.length-1));
       if(Number.isInteger(state.scrollLine)&&state.scrollLine>=0) active=Math.min(state.scrollLine,Math.max(0,rows.length-1));
       if(active<0) active=rows.findIndex(r=>!r.section);
-      $('song').textContent=state.title||'VocLyrics'; $('next-song').textContent=state.next?`Next song: ${state.next}`:'';
+      $('song').textContent=state.title||'VocLyrics';
       const canControl=state.controllerId===clientId&&clientId>0;
       $('scroll-up').disabled=!canControl; $('scroll-down').disabled=!canControl;
       if(active!==lastActive){renderRows(active);lastActive=active;}
@@ -148,7 +146,9 @@
   screen.addEventListener('pointerup',event=>{if(pointerY===null)return;const distance=pointerY-event.clientY;if(Math.abs(distance)>22)controlScroll(distance>0?1:-1);pointerY=null;});
   screen.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)>0)controlScroll(event.deltaY>0?1:-1);},{passive:true});
   $('role-confirm').addEventListener('click',()=>chooseRole($('role-first').value)); $('role').addEventListener('change',e=>chooseRole(e.target.value));
-  $('transpose').addEventListener('change',e=>{prefs.transpose=Math.max(-12,Math.min(12,Number.parseInt(e.target.value,10)||0));save();applyPreferences();lastActive=-2;});
+  const setTranspose=value=>{prefs.transpose=Math.max(-12,Math.min(12,value));save();applyPreferences();lastActive=-2;};
+  $('transpose-down').addEventListener('click',()=>setTranspose(prefs.transpose-1));
+  $('transpose-up').addEventListener('click',()=>setTranspose(prefs.transpose+1));
   $('proportional').addEventListener('change',e=>{prefs.proportional=e.target.checked;save();applyPreferences();}); $('show-clock').addEventListener('change',e=>{prefs.clock=e.target.checked;save();applyPreferences();});
   document.querySelectorAll('[data-nudge]').forEach(button=>button.addEventListener('click',()=>{prefs.nudge=button.dataset.nudge==='reset'?0:prefs.nudge+Number(button.dataset.nudge);save();applyPreferences();}));
   $('keep-awake').addEventListener('click',requestWakeLock); document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')requestWakeLock();});
