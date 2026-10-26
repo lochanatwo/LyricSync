@@ -73,9 +73,10 @@ public:
     juce::String getHostRole() const;
     void setHostRole(const juce::String& role);
     int getSharedScrollLine() const { return server.scrollLine(); }
-    bool hostControlsSharedScroll() const { return server.scrollController() == 0; }
+    bool hostControlsSharedScroll() const { return server.hostControlsScroll(); }
     void moveSharedScrollLine(int direction);
     void setSharedScrollController(int id);
+    void setSharedScrollControllers(int primaryId, int secondaryId);
     bool isAutoScrollEnabled() const noexcept { return autoScrollEnabled.load(std::memory_order_relaxed); }
     void setAutoScrollEnabled(bool enabled);
     int getAutoScrollLinesPerMinute() const noexcept { return autoScrollLinesPerMinute.load(std::memory_order_relaxed); }

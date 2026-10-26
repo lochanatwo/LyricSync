@@ -19,6 +19,7 @@ RemotePanel::RemotePanel(VocLyricsAudioProcessor& p) : processor(p), deviceList(
     addAndMakeVisible(interfaceChoice);
     addAndMakeVisible(controllerLabel);
     addAndMakeVisible(controllerChoice);
+    addAndMakeVisible(controllerChoice2);
     addAndMakeVisible(roleLabel);
     addAndMakeVisible(roleChoice);
     addAndMakeVisible(port);
@@ -40,12 +41,9 @@ RemotePanel::RemotePanel(VocLyricsAudioProcessor& p) : processor(p), deviceList(
         interfaceChoice.addItem(addresses[i], static_cast<int>(i + 1));
     if (! addresses.empty()) interfaceChoice.setSelectedId(1, juce::dontSendNotification);
     interfaceChoice.onChange = [this] { refreshDevices(); };
-    controllerLabel.setText("Scroll permission for everyone", juce::dontSendNotification);
-    controllerChoice.onChange = [this]
-    {
-        const auto selected = controllerChoice.getSelectedId();
-        processor.setSharedScrollController(selected <= 1 ? 0 : selected - 1);
-    };
+    controllerLabel.setText("Shared scroll controllers (choose up to 2)", juce::dontSendNotification);
+    controllerChoice.onChange = [this] { applyControllerChoices(); };
+    controllerChoice2.onChange = [this] { applyControllerChoices(); };
     roleLabel.setText("Host band role", juce::dontSendNotification);
     for (int i = 0; i < static_cast<int>(std::size(bandRoles)); ++i)
         roleChoice.addItem(bandRoles[i], i + 1);
@@ -73,7 +71,7 @@ void RemotePanel::paint(juce::Graphics& g)
     const auto selectedAddress = interfaceChoice.getText().isNotEmpty()
         ? interfaceChoice.getText() : voclyrics::NetworkUtils::preferredIPv4Address();
     const auto url = processor.getServer().isRunning()
-        ? juce::String("http://") + selectedAddress + ":" + juce::String(processor.getServer().port()) + "/?v=10"
+        ? juce::String("http://") + selectedAddress + ":" + juce::String(processor.getServer().port()) + "/?v=11"
         : juce::String("Server is off");
     if (processor.getServer().isRunning())
         voclyrics::QrCode::draw(g, juce::Rectangle<float>(getWidth() * 0.5f - 65.0f, 62.0f, 130.0f, 130.0f), url);
@@ -92,7 +90,9 @@ void RemotePanel::resized()
     roleLabel.setBounds(8, 276, getWidth() - 16, 18);
     roleChoice.setBounds(8, 294, getWidth() - 16, 28);
     controllerLabel.setBounds(8, 330, getWidth() - 16, 18);
-    controllerChoice.setBounds(8, 348, getWidth() - 16, 28);
+    const auto controllerWidth = (getWidth() - 22) / 2;
+    controllerChoice.setBounds(8, 348, controllerWidth, 28);
+    controllerChoice2.setBounds(14 + controllerWidth, 348, controllerWidth, 28);
     viewport.setBounds(8, 404, getWidth() - 16, juce::jmax(60, getHeight() - 468));
     portLabel.setBounds(12, getHeight() - 55, 44, 26);
     port.setBounds(58, getHeight() - 55, 70, 26);
@@ -109,24 +109,45 @@ void RemotePanel::refreshDevices()
                 || devices[i].ipAddress != currentDevices[i].ipAddress)
             { devicesChanged = true; break; }
     currentDevices = devices;
-    auto controllerId = processor.getServer().scrollController();
-    const auto controllerConnected = controllerId == 0 || std::any_of(currentDevices.begin(), currentDevices.end(),
-        [controllerId](const auto& device) { return device.id == controllerId; });
-    if (! controllerConnected)
+    auto primaryId = processor.getServer().scrollController();
+    auto secondaryId = processor.getServer().secondaryScrollController();
+    const auto connected = [this](int id)
     {
-        processor.setSharedScrollController(0);
-        controllerId = 0;
+        return id <= 0 || std::any_of(currentDevices.begin(), currentDevices.end(),
+            [id](const auto& device) { return device.id == id; });
+    };
+    if (! connected(primaryId))
+    {
+        primaryId = secondaryId >= 0 && connected(secondaryId) ? secondaryId : 0;
+        secondaryId = -1;
+        processor.setSharedScrollControllers(primaryId, secondaryId);
         devicesChanged = true;
     }
-    const auto wantedController = controllerId == 0 ? 1 : controllerId + 1;
-    if (devicesChanged || controllerChoice.getSelectedId() != wantedController)
+    else if (secondaryId >= 0 && ! connected(secondaryId))
+    {
+        secondaryId = -1;
+        processor.setSharedScrollControllers(primaryId, secondaryId);
+        devicesChanged = true;
+    }
+    const auto wantedPrimary = primaryId == 0 ? 1 : primaryId + 1;
+    const auto wantedSecondary = secondaryId < 0 ? 1 : (secondaryId == 0 ? 2 : secondaryId + 2);
+    if (devicesChanged || controllerChoice.getSelectedId() != wantedPrimary
+        || controllerChoice2.getSelectedId() != wantedSecondary)
     {
         controllerChoice.clear(juce::dontSendNotification);
         controllerChoice.addItem("Desktop host", 1);
+        controllerChoice2.clear(juce::dontSendNotification);
+        controllerChoice2.addItem("No second controller", 1);
+        controllerChoice2.addItem("Desktop host", 2);
         for (const auto& device : currentDevices)
+        {
             controllerChoice.addItem(juce::String(device.name.c_str()) + " (" + juce::String(device.ipAddress.c_str()) + ")",
                                      device.id + 1);
-        controllerChoice.setSelectedId(wantedController, juce::dontSendNotification);
+            controllerChoice2.addItem(juce::String(device.name.c_str()) + " (" + juce::String(device.ipAddress.c_str()) + ")",
+                                      device.id + 2);
+        }
+        controllerChoice.setSelectedId(wantedPrimary, juce::dontSendNotification);
+        controllerChoice2.setSelectedId(wantedSecondary, juce::dontSendNotification);
     }
     const auto ip = interfaceChoice.getText().isNotEmpty() ? interfaceChoice.getText() : voclyrics::NetworkUtils::preferredIPv4Address();
     const auto serverText = processor.getServer().isRunning()
@@ -138,6 +159,20 @@ void RemotePanel::refreshDevices()
     deviceList.setSize(viewport.getWidth(), static_cast<int>(currentDevices.size()) * 70);
     deviceList.repaint();
     repaint();
+}
+
+void RemotePanel::applyControllerChoices()
+{
+    const auto primarySelection = controllerChoice.getSelectedId();
+    const auto secondarySelection = controllerChoice2.getSelectedId();
+    const auto primaryId = primarySelection <= 1 ? 0 : primarySelection - 1;
+    auto secondaryId = secondarySelection <= 1 ? -1 : (secondarySelection == 2 ? 0 : secondarySelection - 2);
+    if (secondaryId == primaryId)
+    {
+        secondaryId = -1;
+        controllerChoice2.setSelectedId(1, juce::dontSendNotification);
+    }
+    processor.setSharedScrollControllers(primaryId, secondaryId);
 }
 
 void RemotePanel::DeviceList::paint(juce::Graphics& g)

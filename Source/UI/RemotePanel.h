@@ -22,11 +22,12 @@ private:
     };
     void timerCallback() override;
     void refreshDevices();
+    void applyControllerChoices();
     VocLyricsAudioProcessor& processor;
     juce::ToggleButton enabled { "Server on" };
     juce::Label address, portLabel, controllerLabel, roleLabel;
     juce::ComboBox interfaceChoice;
-    juce::ComboBox controllerChoice;
+    juce::ComboBox controllerChoice, controllerChoice2;
     juce::ComboBox roleChoice;
     juce::TextEditor port;
     juce::TextButton applyPort { "Apply" };

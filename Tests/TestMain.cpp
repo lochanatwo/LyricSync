@@ -89,6 +89,18 @@ void testEightWebSocketClients()
 {
     voclyrics::ServerManager server;
     expect(server.start(28080), "Embedded HTTP/WebSocket server failed to start");
+    server.setScrollControllers(3, 7);
+    expect(server.isScrollController(3) && server.isScrollController(7),
+           "Both selected remote devices should control shared scrolling");
+    expect(! server.hostControlsScroll(), "Host should not control scrolling unless selected");
+    server.setScrollLine(4);
+    expect(server.scrollLine() < 0, "Unselected host must not change shared scrolling");
+    server.setScrollControllers(0, 7);
+    expect(server.hostControlsScroll() && server.isScrollController(7),
+           "Host and one remote device should be valid simultaneous controllers");
+    server.setScrollLine(4);
+    expect(server.scrollLine() == 4, "Selected host should change shared scrolling");
+    server.resetScrollLine();
     server.setState({"Latency test", "", "[00:00.00]test", 0.0, 1.0, true, false});
 
     std::array<ClientProbe, 8> probes;

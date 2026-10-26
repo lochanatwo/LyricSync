@@ -35,6 +35,7 @@ struct RemoteState
     bool looping = false;
     int scrollLine = -1;
     int scrollControllerId = 0;
+    int secondaryScrollControllerId = -1;
     std::string hostRole;
     int activeLine = -1;
     std::string songId;
@@ -57,7 +58,11 @@ public:
     void nudgeDevice(int id, int deltaMilliseconds);
     int clientCount() const;
     void setScrollController(int id);
+    void setScrollControllers(int primaryId, int secondaryId);
     int scrollController() const;
+    int secondaryScrollController() const;
+    bool isScrollController(int id) const;
+    bool hostControlsScroll() const;
     int scrollLine() const;
     void setScrollLine(int line);
     void resetScrollLine();
@@ -88,6 +93,7 @@ private:
     std::string latestPayload;
     std::uint64_t stateRevision = 0;
     int activeScrollController = 0;
+    int activeSecondaryScrollController = -1;
     int activeScrollLine = -1;
     mutable std::mutex clientsMutex;
     std::vector<std::shared_ptr<Client>> clients;

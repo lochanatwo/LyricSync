@@ -162,6 +162,7 @@ void ServerManager::setState(RemoteState next)
     {
         std::lock_guard<std::mutex> lock(stateMutex);
         next.scrollControllerId = activeScrollController;
+        next.secondaryScrollControllerId = activeSecondaryScrollController;
         next.scrollLine = activeScrollLine;
         state = std::move(next);
         latestPayload = makePayload(state);
@@ -186,11 +187,18 @@ int ServerManager::clientCount() const
 }
 void ServerManager::setScrollController(int id)
 {
+    setScrollControllers(id, -1);
+}
+void ServerManager::setScrollControllers(int primaryId, int secondaryId)
+{
     {
         std::lock_guard<std::mutex> lock(stateMutex);
-        activeScrollController = std::max(0, id);
+        activeScrollController = std::max(0, primaryId);
+        activeSecondaryScrollController = secondaryId < 0 || secondaryId == activeScrollController
+            ? -1 : std::max(0, secondaryId);
         activeScrollLine = -1;
         state.scrollControllerId = activeScrollController;
+        state.secondaryScrollControllerId = activeSecondaryScrollController;
         state.scrollLine = activeScrollLine;
         latestPayload = makePayload(state);
         ++stateRevision;
@@ -202,6 +210,20 @@ int ServerManager::scrollController() const
     std::lock_guard<std::mutex> lock(stateMutex);
     return activeScrollController;
 }
+int ServerManager::secondaryScrollController() const
+{
+    std::lock_guard<std::mutex> lock(stateMutex);
+    return activeSecondaryScrollController;
+}
+bool ServerManager::isScrollController(int id) const
+{
+    std::lock_guard<std::mutex> lock(stateMutex);
+    return id == activeScrollController || id == activeSecondaryScrollController;
+}
+bool ServerManager::hostControlsScroll() const
+{
+    return isScrollController(0);
+}
 int ServerManager::scrollLine() const
 {
     std::lock_guard<std::mutex> lock(stateMutex);
@@ -211,7 +233,7 @@ void ServerManager::setScrollLine(int line)
 {
     {
         std::lock_guard<std::mutex> lock(stateMutex);
-        if (activeScrollController != 0) return;
+        if (activeScrollController != 0 && activeSecondaryScrollController != 0) return;
         const auto bounded = std::max(-1, line);
         if (activeScrollLine == bounded) return;
         activeScrollLine = bounded;
@@ -381,7 +403,7 @@ int ServerManager::websocketData(mg_connection* connection, int bits, char* byte
                     for (const auto& client : self->clients)
                         if (client->connection == connection) { id = client->id; break; }
                 }
-                if (id > 0 && id == self->scrollController())
+                if (id > 0 && self->isScrollController(id))
                 {
                     {
                         std::lock_guard<std::mutex> lock(self->stateMutex);
@@ -414,7 +436,12 @@ void ServerManager::websocketClose(const mg_connection* connection, void* data)
             (*found)->queueReady.notify_all();
             self->retired.push_back(*found);
             self->clients.erase(found);
-            if (self->scrollController() == id) self->setScrollController(0);
+            const auto primary = self->scrollController();
+            const auto secondary = self->secondaryScrollController();
+            if (primary == id)
+                self->setScrollControllers(secondary >= 0 ? secondary : 0, -1);
+            else if (secondary == id)
+                self->setScrollControllers(primary, -1);
         }
         else self->pendingConnections.erase(connection);
     }
@@ -432,6 +459,7 @@ std::string ServerManager::makePayload(const RemoteState& value)
         << ",\"playing\":" << (value.playing ? "true" : "false")
         << ",\"looping\":" << (value.looping ? "true" : "false")
         << ",\"controllerId\":" << value.scrollControllerId
+        << ",\"controllerId2\":" << value.secondaryScrollControllerId
         << ",\"scrollLine\":" << value.scrollLine
         << ",\"hostRole\":\"" << escapeJson(value.hostRole)
         << "\",\"songKey\":" << value.songKeyPitchClass

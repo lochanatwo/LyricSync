@@ -169,12 +169,12 @@ void VocLyricsAudioProcessor::setHostRole(const juce::String& role)
 void VocLyricsAudioProcessor::setSharedScrollLine(int line)
 {
     const auto bounded = juce::jmax(-1, line);
-    if (server.scrollController() == 0) server.setScrollLine(bounded);
+    if (server.hostControlsScroll()) server.setScrollLine(bounded);
 }
 
 void VocLyricsAudioProcessor::moveSharedScrollLine(int direction)
 {
-    if (server.scrollController() != 0) return;
+    if (! server.hostControlsScroll()) return;
     const juce::ScopedLock lock(modelLock);
     const auto* song = setlist.activeSong();
     if (song == nullptr || song->lyrics.empty()) return;
@@ -193,9 +193,15 @@ void VocLyricsAudioProcessor::moveSharedScrollLine(int direction)
 
 void VocLyricsAudioProcessor::setSharedScrollController(int id)
 {
-    const auto bounded = juce::jmax(0, id);
-    if (bounded != 0) setAutoScrollEnabled(false);
-    server.setScrollController(bounded);
+    setSharedScrollControllers(id, -1);
+}
+
+void VocLyricsAudioProcessor::setSharedScrollControllers(int primaryId, int secondaryId)
+{
+    const auto primary = juce::jmax(0, primaryId);
+    const auto secondary = secondaryId < 0 ? -1 : juce::jmax(0, secondaryId);
+    if (primary != 0 || secondary > 0) setAutoScrollEnabled(false);
+    server.setScrollControllers(primary, secondary);
 }
 
 void VocLyricsAudioProcessor::setAutoScrollEnabled(bool enabled)
@@ -207,7 +213,7 @@ void VocLyricsAudioProcessor::setAutoScrollEnabled(bool enabled)
         return;
     }
 
-    if (server.scrollController() != 0) server.setScrollController(0);
+    if (! server.hostControlsScroll()) server.setScrollControllers(0, -1);
     const juce::ScopedLock lock(modelLock);
     const auto* song = setlist.activeSong();
     if (song == nullptr)
@@ -354,7 +360,7 @@ void VocLyricsAudioProcessor::jumpToSong(int index)
 
 void VocLyricsAudioProcessor::timerCallback()
 {
-    if (autoScrollEnabled.load(std::memory_order_relaxed) && server.scrollController() == 0)
+    if (autoScrollEnabled.load(std::memory_order_relaxed) && server.hostControlsScroll())
     {
         if (server.scrollLine() < 0)
         {

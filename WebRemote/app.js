@@ -14,7 +14,7 @@
   prefs.transpose = Number.isInteger(prefs.transpose) ? Math.max(-12, Math.min(12, prefs.transpose)) : 0;
   if(!prefs.targetKeys||typeof prefs.targetKeys!=='object'||Array.isArray(prefs.targetKeys))prefs.targetKeys={};
   if (!roles.includes(prefs.role)) prefs.role = '';
-  let socket, state = null, rows = [], renderedLyrics = null, renderedSongId = '', originalKeyPitch = -1, hostOffset = 0, retry = 0, wakeLock = null, clientId = 0, pointerY = null, lastActive = -2, lastRenderedActive = -1, renderSequence = 0, polling = false;
+  let socket, state = null, rows = [], renderedLyrics = null, renderedSongId = '', originalKeyPitch = -1, hostOffset = 0, retry = 0, wakeLock = null, clientId = 0, pointerY = null, dragAccumulator = 0, dragging = false, lastActive = -2, lastRenderedActive = -1, renderSequence = 0, polling = false;
   const save = () => localStorage.setItem(key, JSON.stringify(prefs));
   const pitchForKey = (root,accidental='') => {
     const natural={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
@@ -53,6 +53,7 @@
     prefs.transpose=transposeBetween(originalKeyPitch,target);select.value=String(target);applyPreferences();
   };
   const position = () => !state ? 0 : state.position + (state.playing ? Math.max(0,performance.now()+hostOffset+prefs.nudge-state.hostMs)/1000 : 0);
+  const canControlScroll = () => !!state&&clientId>0&&(state.controllerId===clientId||state.controllerId2===clientId);
   const isChordOnly = text => {
     const tokens=text.trim().split(/\s+/).filter(Boolean); if(!tokens.length)return false;
     let chords=0;
@@ -129,8 +130,9 @@
       if(Number.isInteger(state.scrollLine)&&state.scrollLine>=0) active=Math.min(state.scrollLine,Math.max(0,rows.length-1));
       if(active<0) active=rows.findIndex(r=>!r.section);
       $('song').textContent=state.title||'VocLyrics';
-      const canControl=state.controllerId===clientId&&clientId>0;
+      const canControl=canControlScroll();
       $('scroll-up').disabled=!canControl; $('scroll-down').disabled=!canControl;
+      screen.classList.toggle('can-scroll',canControl);
       if(active!==lastActive){renderRows(active);lastActive=active;}
     }
     if(prefs.clock)$('clock').textContent=new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});
@@ -169,7 +171,7 @@
     setTimeout(()=>{if(!socket||socket.readyState!==WebSocket.OPEN)startPolling();},1500);
   };
   const ping=()=>{if(socket&&socket.readyState===WebSocket.OPEN){socket.send(JSON.stringify({type:'ping',clientSent:performance.now()}));setTimeout(ping,1000);}};
-  const controlScroll=delta=>{if(!state||state.controllerId!==clientId||clientId<=0)return;const indices=lyricBlocks().map(block=>block.index);if(!indices.length)return;let pos=indices.findIndex(index=>index>=(state.scrollLine>=0?state.scrollLine:indices[0]));if(pos<0)pos=0;pos=Math.max(0,Math.min(indices.length-1,pos+delta));state.scrollLine=indices[pos];socket.send(JSON.stringify({type:'scroll',line:state.scrollLine}));lastActive=-2;};
+  const controlScroll=delta=>{if(!canControlScroll()||!socket||socket.readyState!==WebSocket.OPEN)return;const indices=lyricBlocks().map(block=>block.index);if(!indices.length)return;let pos=indices.findIndex(index=>index>=(state.scrollLine>=0?state.scrollLine:indices[0]));if(pos<0)pos=0;pos=Math.max(0,Math.min(indices.length-1,pos+delta));state.scrollLine=indices[pos];socket.send(JSON.stringify({type:'scroll',line:state.scrollLine}));lastActive=-2;};
   const showFull=()=>{const full=document.createElement('div');full.id='full';full.textContent='VocLyrics is already serving 8 devices. Ask the host to disconnect one, then refresh.';document.body.appendChild(full);};
   const requestWakeLock=async()=>{try{if('wakeLock'in navigator)wakeLock=await navigator.wakeLock.request('screen');}catch(_){}};
   $('gear').addEventListener('click',()=>settings.classList.toggle('hidden'));
@@ -179,14 +181,31 @@
   document.addEventListener('fullscreenchange',()=>{$('fullscreen').textContent=document.fullscreenElement?'×':'⛶';$('fullscreen').setAttribute('aria-label',document.fullscreenElement?'Exit fullscreen':'Enter fullscreen');setTimeout(fitSheet,80);});
   window.addEventListener('resize',()=>setTimeout(fitSheet,60));
   $('scroll-up').addEventListener('click',()=>controlScroll(-2)); $('scroll-down').addEventListener('click',()=>controlScroll(2));
-  screen.addEventListener('pointerdown',event=>{pointerY=event.clientY;});
-  screen.addEventListener('pointerup',event=>{if(pointerY===null)return;const distance=pointerY-event.clientY;if(Math.abs(distance)>22)controlScroll(distance>0?1:-1);pointerY=null;});
+  const finishDrag=()=>{
+    if(!dragging)return;dragging=false;pointerY=null;dragAccumulator=0;
+    lyrics.classList.remove('finger-dragging');lyrics.style.transition='transform .2s cubic-bezier(.22,.72,.18,1)';lyrics.style.transform='translate3d(0,0,0)';
+    setTimeout(()=>{if(!dragging){lyrics.style.removeProperty('transform');lyrics.style.removeProperty('transition');}},220);
+  };
+  lyrics.addEventListener('pointerdown',event=>{
+    if(!canControlScroll())return;dragging=true;pointerY=event.clientY;dragAccumulator=0;
+    lyrics.classList.add('finger-dragging');lyrics.style.transition='none';
+    if(lyrics.setPointerCapture)lyrics.setPointerCapture(event.pointerId);
+  });
+  lyrics.addEventListener('pointermove',event=>{
+    if(!dragging||pointerY===null||!canControlScroll())return;
+    event.preventDefault();dragAccumulator+=pointerY-event.clientY;pointerY=event.clientY;
+    const threshold=Math.max(24,Math.min(48,window.innerHeight*.052));
+    const steps=Math.min(3,Math.floor(Math.abs(dragAccumulator)/threshold));
+    if(steps>0){const direction=dragAccumulator>0?1:-1;controlScroll(direction*steps);dragAccumulator-=direction*steps*threshold;}
+    lyrics.style.transform=`translate3d(0,${-dragAccumulator}px,0)`;
+  },{passive:false});
+  lyrics.addEventListener('pointerup',finishDrag);lyrics.addEventListener('pointercancel',finishDrag);
   screen.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)>0)controlScroll(event.deltaY>0?1:-1);},{passive:true});
   document.addEventListener('keydown',event=>{
     if(event.key!=='ArrowUp'&&event.key!=='ArrowDown')return;
     const tag=document.activeElement&&document.activeElement.tagName;
     if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA')return;
-    if(!state||state.controllerId!==clientId||clientId<=0)return;
+    if(!canControlScroll())return;
     event.preventDefault();controlScroll(event.key==='ArrowUp'?-2:2);
   });
   $('role-confirm').addEventListener('click',()=>chooseRole($('role-first').value)); $('role').addEventListener('change',e=>chooseRole(e.target.value));

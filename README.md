@@ -1,6 +1,6 @@
 # VocLyrics
 
-VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves a lyrics-only browser view to devices on the same local network. Choose **Desktop host** or any connected device in **Shared scroll controller**; scrolling from the selected controller is synchronized to every connected screen. The browser resources are embedded in the app. Internet access is used only by the GitHub Actions workflow to fetch pinned build dependencies.
+VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves a lyrics-only browser view to devices on the same local network. Choose up to two people in **Shared scroll controllers**; scrolling from either selected controller is synchronized to every connected screen. The browser resources are embedded in the app. Internet access is used only by the GitHub Actions workflow to fetch pinned build dependencies.
 
 ## Features
 
@@ -21,7 +21,7 @@ VocLyrics is a standalone desktop app that keeps lyrics and a setlist and serves
 - Browser display modes, automatic phone-width chord-sheet fitting, Android fullscreen, iPhone Home Screen fullscreen mode, local clock, proportional text, supported screen wake lock, reconnect, latency estimation and per-device sync nudge are available.
 - A ninth device is refused and shown a friendly maximum-device message by the browser view.
 - The host publishes one authoritative active lyric row with every state update, so all WebSocket and HTTP-fallback viewers choose the same row instead of calculating it independently.
-- The standalone desktop app runs without a DAW; the host chooses **Desktop host** or any connected device as the single shared-scroll controller. Only that selected device can scroll, and all connected displays follow. Laptop browser viewers can use their keyboard **Up/Down Arrow** keys when selected as controller. Remote devices use a small visible lyric window to limit page memory use.
+- The standalone desktop app runs without a DAW; the host chooses a primary controller and an optional second controller from **Desktop host** and the connected devices. Either selected person can scroll and all connected displays follow. Laptop browser viewers can use their keyboard **Up/Down Arrow** keys when selected. Selected phone viewers can drag the chord sheet continuously with one finger; movement is sent while the finger is moving for smooth low-latency shared scrolling. Remote devices use a small visible lyric window to limit page memory use.
 
 Transpose changes the chord names shown on that screen and does not pitch-shift audio. Add a line such as `Key- A#` to identify the original song key, then choose the target key directly. The visible amount uses the exact `TRANSPOSED BY: N` format. The host's choice is stored in the project, while each remote device stores its own target for each song locally.
 
@@ -46,7 +46,7 @@ The host plug-in API exposes playhead position to effects, but JUCE does not pro
 4. Unzip the download and launch `VocLyrics.exe` on Windows or `VocLyrics.app` on macOS. If macOS blocks it, run `xattr -dr com.apple.quarantine /path/to/VocLyrics.app` in Terminal.
 5. Allow VocLyrics through the operating-system firewall on first run. Phones and tablets must be on the same Wi-Fi/LAN as the host. Open the address or QR code shown in the app on the connected devices.
 
-Allow VocLyrics through the firewall when prompted. Open the address/QR code shown in the app on the connected devices. In **Shared scroll controller**, select **Desktop host** or one of the connected devices; then enable **Share scroll** and use the shared-line buttons or click a lyric line on desktop, or swipe/scroll on the selected remote. All connected lyric screens follow that controller.
+Allow VocLyrics through the firewall when prompted. Open the address/QR code shown in the app on the connected devices. In **Shared scroll controllers**, select the first controller and optionally a second person. Then enable **Share scroll** and use the shared-line buttons or click a lyric line on desktop, use the keyboard arrows on a selected laptop, or drag the chord sheet on a selected phone. All connected lyric screens follow either controller.
 
 The workflow uses JUCE 9.0.3, CivetWeb v1.16 at a pinned upstream commit containing its URI parser security fix, and Nayuki QR Code generator v1.8.0, pinned with CMake FetchContent. Windows builds use the Visual Studio toolchain on `windows-latest`; macOS builds are universal arm64 and x86_64 on `macos-latest`. The workflow runs the parser, tagging, interpolation, and eight-client WebSocket tests before packaging the standalone app for each OS.
 
