@@ -182,6 +182,13 @@
   screen.addEventListener('pointerdown',event=>{pointerY=event.clientY;});
   screen.addEventListener('pointerup',event=>{if(pointerY===null)return;const distance=pointerY-event.clientY;if(Math.abs(distance)>22)controlScroll(distance>0?1:-1);pointerY=null;});
   screen.addEventListener('wheel',event=>{if(Math.abs(event.deltaY)>0)controlScroll(event.deltaY>0?1:-1);},{passive:true});
+  document.addEventListener('keydown',event=>{
+    if(event.key!=='ArrowUp'&&event.key!=='ArrowDown')return;
+    const tag=document.activeElement&&document.activeElement.tagName;
+    if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA')return;
+    if(!state||state.controllerId!==clientId||clientId<=0)return;
+    event.preventDefault();controlScroll(event.key==='ArrowUp'?-2:2);
+  });
   $('role-confirm').addEventListener('click',()=>chooseRole($('role-first').value)); $('role').addEventListener('change',e=>chooseRole(e.target.value));
   $('target-key').addEventListener('change',event=>{
     const target=Number(event.target.value);if(originalKeyPitch<0||!Number.isInteger(target))return;

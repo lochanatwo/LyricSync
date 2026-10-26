@@ -11,6 +11,7 @@ VocLyricsAudioProcessorEditor::VocLyricsAudioProcessorEditor(VocLyricsAudioProce
     addAndMakeVisible(remote);
     addAndMakeVisible(display);
     addAndMakeVisible(displayToggle);
+    setWantsKeyboardFocus(true);
     display.setVisible(false);
     displayToggle.onClick = [this]
     {
@@ -53,7 +54,24 @@ void VocLyricsAudioProcessorEditor::resized()
 
 bool VocLyricsAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
 {
-    juce::ignoreUnused(key);
+    if (key.getModifiers().isCommandDown()
+        && (key.getKeyCode() == 'F' || key.getKeyCode() == 'f'))
+    {
+        manualDisplayMode = false;
+        timerCallback();
+        setlist.focusSearch();
+        return true;
+    }
+    if (displayMode && key.getKeyCode() == juce::KeyPress::upKey)
+    {
+        audioProcessor.moveSharedScrollLine(-2);
+        return true;
+    }
+    if (displayMode && key.getKeyCode() == juce::KeyPress::downKey)
+    {
+        audioProcessor.moveSharedScrollLine(2);
+        return true;
+    }
     return false;
 }
 
@@ -67,6 +85,7 @@ void VocLyricsAudioProcessorEditor::timerCallback()
         editor.setVisible(! displayMode);
         remote.setVisible(! displayMode);
         display.setVisible(displayMode);
+        if (displayMode) display.grabKeyboardFocus();
         displayToggle.setButtonText(displayMode ? "Edit lyrics" : "Performance view");
         resized();
     }

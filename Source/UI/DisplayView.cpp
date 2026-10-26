@@ -113,6 +113,7 @@ juce::String transposeChordLine(const juce::String& line, int semitones)
 
 DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
 {
+    setWantsKeyboardFocus(true);
     addAndMakeVisible(proportional);
     addAndMakeVisible(clock);
     addAndMakeVisible(autoScroll);
