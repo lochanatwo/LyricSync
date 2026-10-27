@@ -3,12 +3,13 @@
 SetlistPanel::SetlistPanel(VocLyricsAudioProcessor& p) : processor(p)
 {
     addAndMakeVisible(search);
-    search.setTextToShowWhenEmpty("Search songs  Ctrl+F", juce::Colour(0xff738095));
+    search.setTextToShowWhenEmpty("Find song or lyric  Ctrl+F", juce::Colour(0xff738095));
     search.setJustification(juce::Justification::centredLeft);
     search.onTextChange = [this] { pressedRow = -1; refresh(); };
     search.onReturnKey = [this]
     {
-        const auto matches = matchingSongIndices();
+        const auto model = processor.getSetlistSnapshot();
+        const auto matches = matchingSongIndices(model);
         if (matches.empty()) return;
         processor.selectSong(matches.front());
         refresh();
@@ -33,14 +34,14 @@ void SetlistPanel::paint(juce::Graphics& g)
     g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
     g.drawText("SETLIST", 14, 10, getWidth() - 28, 24, juce::Justification::centredLeft);
     const auto model = processor.getSetlistSnapshot();
-    const auto matches = matchingSongIndices();
+    const auto matches = matchingSongIndices(model);
     int y = 82;
     const auto active = model.activeIndex();
     if (matches.empty())
     {
         g.setColour(juce::Colour(0xff7f8b9d));
         g.setFont(juce::FontOptions(13.0f));
-        g.drawFittedText("No matching songs", 12, 90, getWidth() - 24, 32, juce::Justification::centred, 1);
+        g.drawFittedText("No matching songs or lyrics", 12, 90, getWidth() - 24, 32, juce::Justification::centred, 1);
     }
     for (const auto songIndex : matches)
     {
@@ -59,9 +60,22 @@ void SetlistPanel::paint(juce::Graphics& g)
             g.setColour(juce::Colour(0xffccd3dd));
         }
         g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
-        g.drawFittedText(juce::String(model.songs()[i].title.c_str()), bounds.reduced(12, 2),
+        const auto query = searchQuery();
+        const auto& song = model.songs()[i];
+        g.drawFittedText(juce::String(song.title.c_str()), bounds.reduced(12, 2).removeFromTop(25),
                          juce::Justification::centredLeft, 1);
-        if (static_cast<int>(i) == active + 1)
+        if (query.isNotEmpty())
+            for (const auto& line : song.lyrics)
+            {
+                const auto lyric = juce::String(line.text.c_str());
+                if (! lyric.containsIgnoreCase(query)) continue;
+                g.setColour(juce::Colour(0xff90a7b5));
+                g.setFont(juce::FontOptions(11.0f));
+                g.drawFittedText(lyric, bounds.reduced(12, 2).removeFromBottom(18),
+                                 juce::Justification::centredLeft, 1);
+                break;
+            }
+        if (query.isEmpty() && static_cast<int>(i) == active + 1)
         {
             g.setColour(juce::Colour(0xff8490a0));
             g.setFont(juce::FontOptions(11.0f));
@@ -100,21 +114,33 @@ void SetlistPanel::focusSearch()
     search.grabKeyboardFocus();
     search.selectAll();
 }
-std::vector<int> SetlistPanel::matchingSongIndices() const
+std::vector<int> SetlistPanel::matchingSongIndices(const voclyrics::SetlistModel& model) const
 {
-    const auto model = processor.getSetlistSnapshot();
     const auto query = search.getText().trim();
     std::vector<int> matches;
     for (int i = 0; i < static_cast<int>(model.songs().size()); ++i)
-        if (query.isEmpty() || juce::String(model.songs()[static_cast<std::size_t>(i)].title.c_str()).containsIgnoreCase(query))
+    {
+        const auto& song = model.songs()[static_cast<std::size_t>(i)];
+        if (query.isEmpty() || juce::String(song.title.c_str()).containsIgnoreCase(query))
+        {
             matches.push_back(i);
+            continue;
+        }
+        for (const auto& line : song.lyrics)
+            if (juce::String(line.text.c_str()).containsIgnoreCase(query))
+            {
+                matches.push_back(i);
+                break;
+            }
+    }
     return matches;
 }
 void SetlistPanel::mouseDown(const juce::MouseEvent& event)
 {
     if (event.y < 82) { pressedRow = -1; return; }
     const auto row = (event.y - 82) / 54;
-    const auto matches = matchingSongIndices();
+    const auto model = processor.getSetlistSnapshot();
+    const auto matches = matchingSongIndices(model);
     pressedRow = row >= 0 && row < static_cast<int>(matches.size()) ? matches[static_cast<std::size_t>(row)] : -1;
     dragged = false;
 }
@@ -145,8 +171,8 @@ void SetlistPanel::mouseDoubleClick(const juce::MouseEvent& event)
 {
     if (event.y < 82) return;
     const auto visibleRow = (event.y - 82) / 54;
-    const auto matches = matchingSongIndices();
     const auto model = processor.getSetlistSnapshot();
+    const auto matches = matchingSongIndices(model);
     if (visibleRow < 0 || visibleRow >= static_cast<int>(matches.size())) return;
     const auto row = matches[static_cast<std::size_t>(visibleRow)];
     auto* prompt = new juce::AlertWindow("Rename song", "Enter a song title", juce::AlertWindow::NoIcon);

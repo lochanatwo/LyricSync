@@ -2,10 +2,12 @@
 
 #include <JuceHeader.h>
 #include "Lyrics/SetlistModel.h"
+#include "Lyrics/TapTempo.h"
 #include "Network/ServerManager.h"
 #include <atomic>
 #include <cstdint>
 #include <string>
+#include <unordered_map>
 
 static_assert(std::atomic<std::int64_t>::is_always_lock_free,
               "VocLyrics requires lock-free 64-bit atomics for audio transport state");
@@ -70,6 +72,7 @@ public:
     {
         transposeSemitones.store(juce::jlimit(-12, 12, semitones), std::memory_order_relaxed);
     }
+    void setTargetKeyForActiveSong(int targetPitchClass);
     juce::String getHostRole() const;
     void setHostRole(const juce::String& role);
     int getSharedScrollLine() const { return server.scrollLine(); }
@@ -81,11 +84,16 @@ public:
     void setAutoScrollEnabled(bool enabled);
     int getAutoScrollLinesPerMinute() const noexcept { return autoScrollLinesPerMinute.load(std::memory_order_relaxed); }
     void setAutoScrollLinesPerMinute(int linesPerMinute);
+    void registerTapTempo();
+    void stopTapTempo();
+    bool isTapTempoEnabled() const noexcept { return tapScrollEnabled.load(std::memory_order_relaxed); }
+    int getTapTempoBpm() const noexcept { return tapTempoBpm.load(std::memory_order_relaxed); }
 
 private:
     void publishTransport() noexcept;
     void timerCallback() override;
     void updateServerState();
+    void applyActiveSongTranspose();
 
     // Integer microseconds avoid relying on potentially non-lock-free floating
     // point atomics. The audio callback only publishes these scalar values.
@@ -96,9 +104,12 @@ private:
     std::atomic<int> transposeSemitones { 0 };
     std::atomic<bool> autoScrollEnabled { false };
     std::atomic<int> autoScrollLinesPerMinute { 12 };
+    std::atomic<bool> tapScrollEnabled { false };
+    std::atomic<int> tapTempoBpm { 0 };
 
     mutable juce::CriticalSection modelLock;
     voclyrics::SetlistModel setlist;
+    std::unordered_map<std::string, int> targetKeyBySong;
     voclyrics::ServerManager server;
     int lastTaggedIndex = -1;
     double previousTagTime = -1.0;
@@ -106,6 +117,8 @@ private:
     std::string lastAutoAdvancedId;
     juce::String hostRole { "Main Singer" };
     double autoScrollLastTickMilliseconds = 0.0;
+    double tapScrollLastTickMilliseconds = 0.0;
+    voclyrics::TapTempo tapTempoClock;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(VocLyricsAudioProcessor)
 };

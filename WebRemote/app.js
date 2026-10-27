@@ -15,19 +15,21 @@
   if(!prefs.targetKeys||typeof prefs.targetKeys!=='object'||Array.isArray(prefs.targetKeys))prefs.targetKeys={};
   if (!roles.includes(prefs.role)) prefs.role = '';
   let socket, state = null, rows = [], renderedLyrics = null, renderedSongId = '', originalKeyPitch = -1, hostOffset = 0, retry = 0, wakeLock = null, clientId = 0, pointerY = null, dragAccumulator = 0, dragging = false, lastActive = -2, lastRenderedActive = -1, renderSequence = 0, polling = false;
-  const save = () => localStorage.setItem(key, JSON.stringify(prefs));
+  const save = () => { try { localStorage.setItem(key, JSON.stringify(prefs)); } catch (_) {} };
   const pitchForKey = (root,accidental='') => {
     const natural={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
     const base=natural[String(root).toUpperCase()]; if(!Number.isInteger(base))return -1;
     return (base+(accidental==='#'?1:accidental==='b'?-1:0)+12)%12;
   };
   const parse = source => source.split(/\r?\n/).map(line => {
-    const keyLine=line.match(/^\s*key\s*[-:]\s*([A-G])([#b]?)\s*$/i);
-    if(keyLine)return {time:-1,text:line,section:false,key:true,keyPitch:pitchForKey(keyLine[1],keyLine[2])};
     const m = line.match(/^\[(\d+):(\d{1,2})(?:[.,](\d{1,3}))?\](.*)$/);
-    if (m) return {time:Number(m[1])*60+Number(m[2])+Number(('0.'+(m[3]||'0')).slice(0,5)), text:m[4], section:false};
-    const section = line.match(/^\[([^\]]+)\]$/);
-    return line.trim() ? {time:-1,text:section?section[1]:line,section:!!section} : null;
+    const time=m?Number(m[1])*60+Number(m[2])+Number(('0.'+(m[3]||'0')).slice(0,5)):-1;
+    const text=m?m[4]:line;
+    const keyLine=text.match(/^\s*key\s*[-:]\s*([A-G])([#b]?)(?:\s*(?:\||\()?\s*transposed by:\s*[+-]?\d+\s*\)?)?\s*$/i);
+    if(keyLine)return {time,text,section:false,key:true,keyPitch:pitchForKey(keyLine[1],keyLine[2])};
+    if(m)return {time,text,section:false};
+    const section = text.match(/^\[([^\]]+)\]$/);
+    return text.trim() ? {time:-1,text:section?section[1]:text,section:!!section} : null;
   }).filter(Boolean);
   const roleOptions = roles.map(role => `<option value="${role}">${role}</option>`).join('');
   $('role').innerHTML = roleOptions;
@@ -48,8 +50,10 @@
     if(originalKeyPitch<0){select.disabled=true;select.value='';source.textContent='Add Key- A#';prefs.transpose=0;applyPreferences();return;}
     select.disabled=false;source.textContent=`Key- ${keyNames[originalKeyPitch]} →`;
     const preferenceKey=songPreferenceKey();
-    let target=Number(prefs.targetKeys[preferenceKey]);
-    if(!Number.isInteger(target)||target<0||target>11){target=(originalKeyPitch+prefs.transpose+120)%12;prefs.targetKeys[preferenceKey]=target;save();}
+    const remembered=Object.prototype.hasOwnProperty.call(prefs.targetKeys,preferenceKey);
+    let target=remembered?Number(prefs.targetKeys[preferenceKey]):originalKeyPitch;
+    if(!Number.isInteger(target)||target<0||target>11)target=originalKeyPitch;
+    if(!remembered){prefs.targetKeys[preferenceKey]=target;save();}
     prefs.transpose=transposeBetween(originalKeyPitch,target);select.value=String(target);applyPreferences();
   };
   const position = () => !state ? 0 : state.position + (state.playing ? Math.max(0,performance.now()+hostOffset+prefs.nudge-state.hostMs)/1000 : 0);
@@ -82,7 +86,7 @@
   const transposeRoot = (root,accidental,amount) => {
     const natural={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
     const names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-    let pitch=natural[root]+(accidental==='#'?1:accidental==='b'?-1:0)+amount;
+    let pitch=natural[root.toUpperCase()]+(accidental==='#'?1:accidental==='b'?-1:0)+amount;
     return names[((pitch%12)+12)%12];
   };
   const transposeChord = (token,amount) => {
@@ -145,7 +149,7 @@
       state=data;
       if(renderedLyrics!==data.lyrics||renderedSongId!==(data.songId||'')){
         renderedLyrics=data.lyrics;renderedSongId=data.songId||'';rows=parse(data.lyrics||'');
-        originalKeyPitch=Number.isInteger(data.songKey)?data.songKey:(rows.find(row=>row.key)?.keyPitch??-1);
+        originalKeyPitch=Number.isInteger(data.songKey)&&data.songKey>=0?data.songKey:(rows.find(row=>row.key)?.keyPitch??-1);
         syncKeyControls();lastActive=-2;lastRenderedActive=-1;
       }
     }

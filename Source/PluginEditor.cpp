@@ -12,6 +12,8 @@ VocLyricsAudioProcessorEditor::VocLyricsAudioProcessorEditor(VocLyricsAudioProce
     addAndMakeVisible(display);
     addAndMakeVisible(displayToggle);
     setWantsKeyboardFocus(true);
+    setlist.setShortcutHandler([this](const juce::KeyPress& key) { return keyPressed(key); });
+    editor.setShortcutHandler([this](const juce::KeyPress& key) { return keyPressed(key); });
     display.setVisible(false);
     displayToggle.onClick = [this]
     {
@@ -54,6 +56,12 @@ void VocLyricsAudioProcessorEditor::resized()
 
 bool VocLyricsAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
 {
+    if (key.getModifiers().isShiftDown() && key.getKeyCode() == juce::KeyPress::spaceKey)
+    {
+        if (! tapShortcutHeld) audioProcessor.registerTapTempo();
+        tapShortcutHeld = true;
+        return true;
+    }
     if (key.getModifiers().isCommandDown()
         && (key.getKeyCode() == 'F' || key.getKeyCode() == 'f'))
     {
@@ -77,6 +85,8 @@ bool VocLyricsAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
 
 void VocLyricsAudioProcessorEditor::timerCallback()
 {
+    if (tapShortcutHeld && ! juce::KeyPress::isKeyCurrentlyDown(juce::KeyPress::spaceKey))
+        tapShortcutHeld = false;
     const auto shouldDisplay = manualDisplayMode;
     if (shouldDisplay != displayMode)
     {
@@ -95,5 +105,6 @@ void VocLyricsAudioProcessorEditor::timerCallback()
 void VocLyricsAudioProcessorEditor::reloadSong()
 {
     editor.loadFromProcessor();
+    editor.focusLyricsMatch(setlist.searchQuery());
     setlist.refresh();
 }

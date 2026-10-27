@@ -1,6 +1,7 @@
 #include "SongModel.h"
 
 #include <cctype>
+#include <string>
 
 namespace voclyrics
 {
@@ -29,7 +30,27 @@ int keyPitchClass(const std::string& text)
     if (position < text.size() && (text[position] == '#' || text[position] == 'b'))
         accidental = text[position++];
     skipSpace();
-    if (position != text.size()) return -1;
+    if (position != text.size())
+    {
+        if (text[position] == '|' || text[position] == '(')
+        {
+            ++position;
+            skipSpace();
+        }
+        constexpr const char* label = "transposed by:";
+        for (std::size_t i = 0; label[i] != '\0'; ++i, ++position)
+            if (position >= text.size()
+                || std::tolower(static_cast<unsigned char>(text[position])) != label[i])
+                return -1;
+        skipSpace();
+        if (position < text.size() && (text[position] == '+' || text[position] == '-')) ++position;
+        const auto digitsStart = position;
+        while (position < text.size() && std::isdigit(static_cast<unsigned char>(text[position]))) ++position;
+        if (digitsStart == position) return -1;
+        skipSpace();
+        if (position < text.size() && text[position] == ')') { ++position; skipSpace(); }
+        if (position != text.size()) return -1;
+    }
     static constexpr int naturalPitches[] { 9, 11, 0, 2, 4, 5, 7 };
     auto pitch = naturalPitches[root - 'A'];
     if (accidental == '#') ++pitch;

@@ -44,6 +44,9 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
     addAndMakeVisible(lyrics);
     addAndMakeVisible(shareScroll);
     addAndMakeVisible(autoScroll);
+    addAndMakeVisible(tapTempoButton);
+    addAndMakeVisible(stopTempoButton);
+    addAndMakeVisible(tapTempoStatus);
     addAndMakeVisible(autoScrollSpeedLabel);
     addAndMakeVisible(autoScrollSpeed);
     addAndMakeVisible(originalKeyStatus);
@@ -69,6 +72,14 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
         processor.setAutoScrollEnabled(enabled);
         autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);
     };
+    tapTempoButton.onClick = [this]
+    {
+        processor.registerTapTempo();
+        shareScroll.setToggleState(false, juce::dontSendNotification);
+        timerCallback();
+    };
+    stopTempoButton.onClick = [this] { processor.stopTapTempo(); timerCallback(); };
+    tapTempoStatus.setJustificationType(juce::Justification::centredLeft);
     for (int pitch = 0; pitch < 12; ++pitch)
         transposeChoice.addItem(juce::String(voclyrics::keyNameForPitchClass(pitch).c_str()), pitch + 1);
     transposeChoice.onChange = [this]
@@ -78,7 +89,7 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
         const auto sourcePitch = song != nullptr ? voclyrics::songKeyPitchClass(*song) : -1;
         const auto targetPitch = transposeChoice.getSelectedId() - 1;
         if (sourcePitch >= 0 && targetPitch >= 0)
-            processor.setTransposeSemitones(voclyrics::transposeSemitonesForKeys(sourcePitch, targetPitch));
+            processor.setTargetKeyForActiveSong(targetPitch);
         refreshKeyControls();
     };
     previousSection.onClick = [this] { moveSection(-1); };
@@ -90,6 +101,7 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
         if (shareScroll.getToggleState())
         {
             processor.setAutoScrollEnabled(false);
+            processor.stopTapTempo();
             autoScroll.setToggleState(false, juce::dontSendNotification);
             timerCallback();
         }
@@ -134,13 +146,17 @@ void EditorPanel::resized()
     shareScroll.setBounds(sharedControls.removeFromLeft(130).reduced(3));
     previousLine.setBounds(sharedControls.removeFromLeft(125).reduced(3));
     nextLine.setBounds(sharedControls.removeFromLeft(125).reduced(3));
-    originalKeyStatus.setBounds(sharedControls.removeFromLeft(150).reduced(3));
-    transposeStatus.setBounds(sharedControls.removeFromLeft(165).reduced(3));
-    transposeChoice.setBounds(sharedControls.removeFromLeft(95).reduced(3));
+    auto keyControls = area.removeFromTop(38);
+    originalKeyStatus.setBounds(keyControls.removeFromLeft(150).reduced(3));
+    transposeStatus.setBounds(keyControls.removeFromLeft(170).reduced(3));
+    transposeChoice.setBounds(keyControls.removeFromLeft(110).reduced(3));
     auto autoControls = area.removeFromTop(40);
     autoScroll.setBounds(autoControls.removeFromLeft(130).reduced(3));
     autoScrollSpeedLabel.setBounds(autoControls.removeFromLeft(55).reduced(3));
-    autoScrollSpeed.setBounds(autoControls.removeFromLeft(300).reduced(3));
+    autoScrollSpeed.setBounds(autoControls.removeFromLeft(235).reduced(3));
+    tapTempoButton.setBounds(autoControls.removeFromLeft(110).reduced(3));
+    stopTempoButton.setBounds(autoControls.removeFromLeft(54).reduced(3));
+    tapTempoStatus.setBounds(autoControls.reduced(3));
     area.removeFromTop(4);
     lyrics.setBounds(area);
 }
@@ -162,6 +178,14 @@ void EditorPanel::timerCallback()
     refreshKeyControls();
     autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);
     autoScrollSpeed.setValue(processor.getAutoScrollLinesPerMinute(), juce::dontSendNotification);
+    const auto tapActive = processor.isTapTempoEnabled();
+    const auto bpm = processor.getTapTempoBpm();
+    tapTempoStatus.setText(bpm > 0 ? juce::String(bpm) + " BPM"
+                                  : (tapActive ? juce::String("Tap again") : juce::String("Shift+Space")),
+                           juce::dontSendNotification);
+    tapTempoButton.setEnabled(processor.hostControlsSharedScroll());
+    stopTempoButton.setEnabled(tapActive);
+    if (tapActive) shareScroll.setToggleState(false, juce::dontSendNotification);
     if (! shareScroll.getToggleState()) return;
     const auto text = lyrics.getText();
     processor.setSharedScrollLine(lineForCaret(nonEmptyLineStarts(text), lyrics.getCaretPosition()));
@@ -199,6 +223,16 @@ void EditorPanel::loadFromProcessor()
     const auto text = processor.getLyricsText();
     if (lyrics.getText() != text) lyrics.setText(text, false);
     refreshKeyControls();
+}
+
+void EditorPanel::focusLyricsMatch(const juce::String& query)
+{
+    if (query.isEmpty()) return;
+    const auto position = lyrics.getText().indexOfIgnoreCase(query);
+    if (position < 0) return;
+    lyrics.grabKeyboardFocus();
+    lyrics.setCaretPosition(position);
+    lyrics.setHighlightedRegion(juce::Range<int>(position, position + query.length()));
 }
 
 void EditorPanel::refreshKeyControls()

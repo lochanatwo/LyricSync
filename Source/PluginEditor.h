@@ -28,4 +28,5 @@ private:
     juce::TextButton displayToggle { "Performance view" };
     bool displayMode = false;
     bool manualDisplayMode = false;
+    bool tapShortcutHeld = false;
 };

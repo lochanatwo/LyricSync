@@ -13,6 +13,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Check browser script syntax
+        run: node --check WebRemote/app.js
       - name: Configure
         run: cmake -S . -B build -DBUILD_TESTING=ON
       - name: Build standalone app and tests
@@ -61,4 +63,3 @@ jobs:
           name: VocLyrics-Standalone-macOS-universal
           path: VocLyrics-macOS.zip
           if-no-files-found: error
-

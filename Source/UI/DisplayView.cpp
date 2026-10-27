@@ -65,12 +65,16 @@ std::string transposedRoot(char root, char accidental, int semitones)
 
 std::string transposeChordToken(const std::string& token, int semitones)
 {
-    if (token.empty() || token.front() < 'A' || token.front() > 'G' || semitones == 0) return token;
+    if (token.empty() || semitones == 0) return token;
     std::string result;
-    std::size_t position = 1;
+    std::size_t position = 0;
+    while (position < token.size() && (token[position] == '|' || token[position] == ':'))
+        result += token[position++];
+    if (position >= token.size() || token[position] < 'A' || token[position] > 'G') return token;
+    const auto root = token[position++];
     const auto accidental = position < token.size() && (token[position] == '#' || token[position] == 'b')
                                 ? token[position++] : '\0';
-    result += transposedRoot(token.front(), accidental, semitones);
+    result += transposedRoot(root, accidental, semitones);
     while (position < token.size())
     {
         if (token[position] == '/' && position + 1 < token.size()
@@ -117,6 +121,9 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
     addAndMakeVisible(proportional);
     addAndMakeVisible(clock);
     addAndMakeVisible(autoScroll);
+    addAndMakeVisible(tapTempoButton);
+    addAndMakeVisible(stopTempoButton);
+    addAndMakeVisible(tapTempoStatus);
     addAndMakeVisible(autoScrollSpeed);
     addAndMakeVisible(targetKeyChoice);
     addAndMakeVisible(upButton);
@@ -137,6 +144,9 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
         processor.setAutoScrollEnabled(autoScroll.getToggleState());
         autoScroll.setToggleState(processor.isAutoScrollEnabled(), juce::dontSendNotification);
     };
+    tapTempoButton.onClick = [this] { processor.registerTapTempo(); };
+    stopTempoButton.onClick = [this] { processor.stopTapTempo(); };
+    tapTempoStatus.setJustificationType(juce::Justification::centredLeft);
     targetKeyChoice.setTextWhenNothingSelected("Target key");
     for (int pitch = 0; pitch < 12; ++pitch)
         targetKeyChoice.addItem(juce::String(voclyrics::keyNameForPitchClass(pitch).c_str()), pitch + 1);
@@ -147,7 +157,7 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
         const auto sourcePitch = song != nullptr ? voclyrics::songKeyPitchClass(*song) : -1;
         const auto targetPitch = targetKeyChoice.getSelectedId() - 1;
         if (sourcePitch >= 0 && targetPitch >= 0)
-            processor.setTransposeSemitones(voclyrics::transposeSemitonesForKeys(sourcePitch, targetPitch));
+            processor.setTargetKeyForActiveSong(targetPitch);
     };
     for (auto* button : { &upButton, &downButton })
     {
@@ -244,6 +254,9 @@ void DisplayView::resized()
     clock.setBounds(top.removeFromLeft(90));
     autoScroll.setBounds(top.removeFromLeft(120));
     autoScrollSpeed.setBounds(top.removeFromLeft(240));
+    tapTempoButton.setBounds(top.removeFromLeft(106));
+    stopTempoButton.setBounds(top.removeFromLeft(52));
+    tapTempoStatus.setBounds(top.removeFromLeft(105));
     targetKeyChoice.setBounds(top.removeFromLeft(120));
     auto controls = getLocalBounds().removeFromRight(82).withSizeKeepingCentre(62, 154);
     upButton.setBounds(controls.removeFromTop(70));
@@ -346,6 +359,13 @@ void DisplayView::timerCallback()
     autoScroll.setEnabled(hostControls);
     autoScrollSpeed.setValue(processor.getAutoScrollLinesPerMinute(), juce::dontSendNotification);
     autoScrollSpeed.setEnabled(hostControls);
+    const auto tapActive = processor.isTapTempoEnabled();
+    const auto bpm = processor.getTapTempoBpm();
+    tapTempoStatus.setText(bpm > 0 ? juce::String(bpm) + " BPM"
+                                  : (tapActive ? juce::String("Tap again") : juce::String("Shift+Space")),
+                           juce::dontSendNotification);
+    tapTempoButton.setEnabled(hostControls);
+    stopTempoButton.setEnabled(tapActive);
     upButton.setEnabled(hostControls);
     downButton.setEnabled(hostControls);
     repaint();

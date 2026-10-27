@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(VocLyrics VERSION 1.1.0 LANGUAGES C CXX)
+project(VocLyrics VERSION 1.2.0 LANGUAGES C CXX)
 
 include(FetchContent)
 

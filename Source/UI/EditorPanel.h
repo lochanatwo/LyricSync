@@ -1,7 +1,9 @@
 #pragma once
 
 #include "PluginProcessor.h"
+#include "ShortcutTextEditor.h"
 #include <JuceHeader.h>
+#include <utility>
 
 class EditorPanel final : public juce::Component, private juce::Timer
 {
@@ -9,15 +11,22 @@ public:
     explicit EditorPanel(VocLyricsAudioProcessor& processor);
     void resized() override;
     void loadFromProcessor();
+    void focusLyricsMatch(const juce::String& query);
+    void setShortcutHandler(std::function<bool(const juce::KeyPress&)> handler)
+    {
+        lyrics.onShortcut = std::move(handler);
+    }
     void timerCallback() override;
 private:
     VocLyricsAudioProcessor& processor;
-    juce::TextEditor lyrics;
+    ShortcutTextEditor lyrics;
     juce::TextButton import { "Import lyrics" }, exportFile { "Export lyrics" };
     juce::TextButton previousSection { "Prev section" }, nextSection { "Next section" };
     juce::TextButton previousLine { "Shared line −" }, nextLine { "Shared line +" };
     juce::ToggleButton shareScroll { "Share scroll" };
     juce::ToggleButton autoScroll { "Auto scroll" };
+    juce::TextButton tapTempoButton { "Tap tempo" }, stopTempoButton { "Stop" };
+    juce::Label tapTempoStatus;
     juce::Label autoScrollSpeedLabel;
     juce::Slider autoScrollSpeed;
     juce::Label originalKeyStatus;

@@ -14,6 +14,8 @@ private:
     void timerCallback() override;
     VocLyricsAudioProcessor& processor;
     juce::ToggleButton proportional { "Proportional text" }, clock { "Clock" }, autoScroll { "Auto scroll" };
+    juce::TextButton tapTempoButton { "Tap tempo" }, stopTempoButton { "Stop" };
+    juce::Label tapTempoStatus;
     juce::Slider autoScrollSpeed;
     juce::ComboBox targetKeyChoice;
     juce::TextButton upButton { juce::String::charToString(0x2191) };

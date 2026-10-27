@@ -166,6 +166,28 @@ void VocLyricsAudioProcessor::setHostRole(const juce::String& role)
     updateServerState();
 }
 
+void VocLyricsAudioProcessor::setTargetKeyForActiveSong(int targetPitchClass)
+{
+    if (targetPitchClass < 0 || targetPitchClass >= 12) return;
+    const juce::ScopedLock lock(modelLock);
+    const auto* song = setlist.activeSong();
+    if (song == nullptr) return;
+    const auto sourcePitch = voclyrics::songKeyPitchClass(*song);
+    if (sourcePitch < 0) return;
+    targetKeyBySong[song->id] = targetPitchClass;
+    setTransposeSemitones(voclyrics::transposeSemitonesForKeys(sourcePitch, targetPitchClass));
+}
+
+void VocLyricsAudioProcessor::applyActiveSongTranspose()
+{
+    const auto* song = setlist.activeSong();
+    if (song == nullptr) { setTransposeSemitones(0); return; }
+    const auto found = targetKeyBySong.find(song->id);
+    const auto sourcePitch = voclyrics::songKeyPitchClass(*song);
+    setTransposeSemitones(found != targetKeyBySong.end() && sourcePitch >= 0
+        ? voclyrics::transposeSemitonesForKeys(sourcePitch, found->second) : 0);
+}
+
 void VocLyricsAudioProcessor::setSharedScrollLine(int line)
 {
     const auto bounded = juce::jmax(-1, line);
@@ -189,6 +211,8 @@ void VocLyricsAudioProcessor::moveSharedScrollLine(int direction)
     server.setScrollLine(starts[static_cast<std::size_t>(position)]);
     if (autoScrollEnabled.load(std::memory_order_relaxed))
         autoScrollLastTickMilliseconds = juce::Time::getMillisecondCounterHiRes();
+    if (tapScrollEnabled.load(std::memory_order_relaxed))
+        tapScrollLastTickMilliseconds = juce::Time::getMillisecondCounterHiRes();
 }
 
 void VocLyricsAudioProcessor::setSharedScrollController(int id)
@@ -200,7 +224,11 @@ void VocLyricsAudioProcessor::setSharedScrollControllers(int primaryId, int seco
 {
     const auto primary = juce::jmax(0, primaryId);
     const auto secondary = secondaryId < 0 ? -1 : juce::jmax(0, secondaryId);
-    if (primary != 0 || secondary > 0) setAutoScrollEnabled(false);
+    if (primary != 0 || secondary > 0)
+    {
+        setAutoScrollEnabled(false);
+        stopTapTempo();
+    }
     server.setScrollControllers(primary, secondary);
 }
 
@@ -213,6 +241,7 @@ void VocLyricsAudioProcessor::setAutoScrollEnabled(bool enabled)
         return;
     }
 
+    stopTapTempo();
     if (! server.hostControlsScroll()) server.setScrollControllers(0, -1);
     const juce::ScopedLock lock(modelLock);
     const auto* song = setlist.activeSong();
@@ -238,13 +267,39 @@ void VocLyricsAudioProcessor::setAutoScrollLinesPerMinute(int linesPerMinute)
     autoScrollLastTickMilliseconds = juce::Time::getMillisecondCounterHiRes();
 }
 
+void VocLyricsAudioProcessor::registerTapTempo()
+{
+    if (! server.hostControlsScroll()) return;
+    const juce::ScopedLock lock(modelLock);
+    const auto* song = setlist.activeSong();
+    if (song == nullptr) return;
+    const auto starts = displayLineStarts(*song);
+    if (starts.empty()) return;
+    if (! tapScrollEnabled.load(std::memory_order_relaxed)) tapTempoClock.reset();
+    setAutoScrollEnabled(false);
+    const auto now = juce::Time::getMillisecondCounterHiRes();
+    const auto bpm = tapTempoClock.tap(now);
+    tapTempoBpm.store(bpm, std::memory_order_relaxed);
+    if (server.scrollLine() < 0) server.setScrollLine(starts.front());
+    tapScrollLastTickMilliseconds = now;
+    tapScrollEnabled.store(true, std::memory_order_relaxed);
+}
+
+void VocLyricsAudioProcessor::stopTapTempo()
+{
+    tapScrollEnabled.store(false, std::memory_order_relaxed);
+    tapScrollLastTickMilliseconds = 0.0;
+}
+
 void VocLyricsAudioProcessor::selectSong(int index)
 {
     const juce::ScopedLock lock(modelLock);
     if (setlist.setActive(index))
     {
         lastAutoAdvancedId.clear();
+        stopTapTempo();
         server.resetScrollLine();
+        applyActiveSongTranspose();
     }
     updateServerState();
 }
@@ -253,6 +308,7 @@ int VocLyricsAudioProcessor::addSong()
 {
     const juce::ScopedLock lock(modelLock);
     const auto result = setlist.addSong();
+    applyActiveSongTranspose();
     updateServerState();
     return result;
 }
@@ -261,6 +317,7 @@ bool VocLyricsAudioProcessor::duplicateSong(int index)
 {
     const juce::ScopedLock lock(modelLock);
     const auto changed = setlist.duplicateSong(index);
+    if (changed) applyActiveSongTranspose();
     updateServerState();
     return changed;
 }
@@ -269,6 +326,7 @@ bool VocLyricsAudioProcessor::deleteSong(int index)
 {
     const juce::ScopedLock lock(modelLock);
     const auto changed = setlist.removeSong(index);
+    if (changed) applyActiveSongTranspose();
     updateServerState();
     return changed;
 }
@@ -307,6 +365,7 @@ void VocLyricsAudioProcessor::setLyricsText(const juce::String& text)
     const juce::ScopedLock lock(modelLock);
     if (auto* song = setlist.activeSong())
         song->lyrics = voclyrics::LrcParser::parse(text.toStdString());
+    applyActiveSongTranspose();
     updateServerState();
 }
 
@@ -354,7 +413,9 @@ void VocLyricsAudioProcessor::jumpToSong(int index)
     // setlist; hosts can optionally provide their own marker jump integration.
     if (! setlist.setActive(index)) return;
     lastAutoAdvancedId.clear();
+    stopTapTempo();
     server.resetScrollLine();
+    applyActiveSongTranspose();
     updateServerState();
 }
 
@@ -382,6 +443,24 @@ void VocLyricsAudioProcessor::timerCallback()
             }
         }
     }
+    if (tapScrollEnabled.load(std::memory_order_relaxed) && server.hostControlsScroll())
+    {
+        const auto bpm = tapTempoBpm.load(std::memory_order_relaxed);
+        if (bpm > 0)
+        {
+            const auto now = juce::Time::getMillisecondCounterHiRes();
+            const auto interval = 60000.0 / static_cast<double>(bpm);
+            if (now - tapScrollLastTickMilliseconds >= interval)
+            {
+                const auto previousLine = server.scrollLine();
+                moveSharedScrollLine(1);
+                if (server.scrollLine() == previousLine)
+                    stopTapTempo();
+                else
+                    tapScrollLastTickMilliseconds = now;
+            }
+        }
+    }
     if (isPlaying.load(std::memory_order_relaxed))
     {
         const juce::ScopedLock lock(modelLock);
@@ -397,6 +476,8 @@ void VocLyricsAudioProcessor::timerCallback()
                 lastAutoAdvancedId = song->id;
                 setlist.skip(1);
                 server.resetScrollLine();
+                stopTapTempo();
+                applyActiveSongTranspose();
             }
         }
     }
@@ -452,6 +533,9 @@ void VocLyricsAudioProcessor::getStateInformation(juce::MemoryBlock& destination
         child.setProperty("lyrics", juce::String(voclyrics::LrcParser::serialize(song.lyrics)), nullptr);
         child.setProperty("start", song.startSeconds, nullptr);
         child.setProperty("autoAdvance", song.autoAdvance, nullptr);
+        const auto target = targetKeyBySong.find(song.id);
+        if (target != targetKeyBySong.end())
+            child.setProperty("targetKey", target->second, nullptr);
         root.addChild(child, -1, nullptr);
     }
     if (auto xml = root.createXml())
@@ -464,6 +548,7 @@ void VocLyricsAudioProcessor::setStateInformation(const void* data, int size)
     if (xml == nullptr || ! xml->hasTagName("VocLyricsState")) return;
     const auto root = juce::ValueTree::fromXml(*xml);
     std::vector<voclyrics::Song> songs;
+    std::unordered_map<std::string, int> restoredTargets;
     for (int i = 0; i < root.getNumChildren(); ++i)
     {
         const auto child = root.getChild(i);
@@ -474,6 +559,11 @@ void VocLyricsAudioProcessor::setStateInformation(const void* data, int size)
         song.lyrics = voclyrics::LrcParser::parse(child.getProperty("lyrics").toString().toStdString());
         song.startSeconds = static_cast<double>(child.getProperty("start", -1.0));
         song.autoAdvance = static_cast<bool>(child.getProperty("autoAdvance", false));
+        if (child.hasProperty("targetKey"))
+        {
+            const auto target = static_cast<int>(child.getProperty("targetKey"));
+            if (target >= 0 && target < 12) restoredTargets[song.id] = target;
+        }
         songs.push_back(std::move(song));
     }
     const juce::ScopedLock lock(modelLock);
@@ -485,9 +575,21 @@ void VocLyricsAudioProcessor::setStateInformation(const void* data, int size)
         server.start(preferredPort);
     }
     setlist.replace(std::move(songs), static_cast<int>(root.getProperty("active", 0)));
-    setTransposeSemitones(static_cast<int>(root.getProperty("transposeSemitones", 0)));
+    targetKeyBySong = std::move(restoredTargets);
+    if (targetKeyBySong.empty())
+    {
+        const auto* activeSong = setlist.activeSong();
+        const auto sourcePitch = activeSong != nullptr ? voclyrics::songKeyPitchClass(*activeSong) : -1;
+        if (sourcePitch >= 0)
+        {
+            const auto legacyShift = static_cast<int>(root.getProperty("transposeSemitones", 0));
+            targetKeyBySong[activeSong->id] = (sourcePitch + legacyShift + 120) % 12;
+        }
+    }
+    applyActiveSongTranspose();
     setAutoScrollLinesPerMinute(static_cast<int>(root.getProperty("autoScrollLinesPerMinute", 12)));
     setAutoScrollEnabled(false);
+    stopTapTempo();
     hostRole = root.getProperty("hostRole", "Main Singer").toString();
     updateServerState();
 }

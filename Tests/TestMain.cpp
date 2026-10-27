@@ -1,6 +1,7 @@
 #include "Lyrics/LrcParser.h"
 #include "Lyrics/LiveTagger.h"
 #include "Lyrics/SetlistModel.h"
+#include "Lyrics/TapTempo.h"
 #include "Network/ServerManager.h"
 #include "Network/SyncClock.h"
 #include <civetweb.h>
@@ -41,6 +42,10 @@ void testLiveTaggerAndSetlist()
     song.lyrics = voclyrics::LrcParser::parse("Key- A#\n[00:01.00]timed\nuntagged one\nuntagged two\n");
     expect(voclyrics::songKeyPitchClass(song) == 10, "Song key line should recognize A#");
     expect(voclyrics::transposeSemitonesForKeys(10, 11) == 1, "Target key should produce an integer semitone shift");
+    expect(voclyrics::keyPitchClass("Key- A# | TRANSPOSED BY: 0") == 10,
+           "Key metadata beside transpose amount must keep key selection available");
+    expect(voclyrics::keyPitchClass("Key- Bb (TRANSPOSED BY: -2)") == 10,
+           "Flat key metadata beside transpose amount must be recognized");
     voclyrics::LiveTagger tagger(song);
     expect(tagger.tagNext(12.345), "Live tag should timestamp the next untimed line");
     expect(song.lyrics.front().timeSeconds < 0.0, "Live tagging must skip the song key line");
@@ -51,6 +56,15 @@ void testLiveTaggerAndSetlist()
     setlist.addSong("Second");
     expect(setlist.moveSong(1, 0), "Setlist reorder failed");
     expect(setlist.activeSong()->title == "Second", "Setlist active item should track reorder");
+}
+
+void testTapTempo()
+{
+    voclyrics::TapTempo tempo;
+    expect(tempo.tap(0.0) == 0, "The first tap should wait for a beat interval");
+    expect(tempo.tap(500.0) == 120, "Half-second taps should set 120 BPM");
+    expect(tempo.tap(1000.0) == 120, "Repeated taps should keep a stable tempo");
+    expect(tempo.tap(3500.0) == 0, "A long pause should start a fresh tap sequence");
 }
 
 void testSyncClock()
@@ -159,6 +173,7 @@ int main()
         testLrcParser();
         testLiveTaggerAndSetlist();
         testSyncClock();
+        testTapTempo();
         testEightWebSocketClients();
         std::cout << "VocLyrics tests passed\n";
         return 0;
