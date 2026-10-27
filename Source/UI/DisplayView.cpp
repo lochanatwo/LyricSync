@@ -116,10 +116,9 @@ void DisplayView::paint(juce::Graphics& g)
     g.setFont(juce::FontOptions(22.0f, juce::Font::bold));
     g.drawText(titleText, 40, 100, getWidth() - 80, 30, juce::Justification::centred);
 
-    auto sheet = getLocalBounds().reduced(38);
-    sheet.removeFromTop(94);
-    sheet.removeFromBottom(40);
-    sheet.removeFromRight(76);
+    auto sheet = getLocalBounds().reduced(20);
+    sheet.removeFromTop(112);
+    sheet.removeFromBottom(18);
     g.setColour(juce::Colour(0xfffffdf8));
     g.fillRoundedRectangle(sheet.toFloat(), 22.0f);
     g.setColour(juce::Colour(0x22000000));
@@ -136,10 +135,11 @@ void DisplayView::paint(juce::Graphics& g)
 
     auto currentArea = sheet.reduced(30, 54);
     currentArea.removeFromTop(8);
+    currentArea.removeFromRight(48);
     const auto rowHeight = juce::jmax(1, currentArea.getHeight() / static_cast<int>(visibleLyrics.size()));
     const auto lyricSize = proportional.getToggleState()
-        ? juce::jlimit(17.0f, 38.0f, static_cast<float>(rowHeight) * 0.42f)
-        : juce::jlimit(17.0f, 32.0f, static_cast<float>(rowHeight) * 0.36f);
+        ? juce::jlimit(15.0f, 31.0f, static_cast<float>(rowHeight) * 0.35f)
+        : juce::jlimit(15.0f, 27.0f, static_cast<float>(rowHeight) * 0.31f);
     const auto drawRows = [&](const std::array<juce::String, 5>& chords,
                               const std::array<juce::String, 5>& lyricLines, float offset)
     {
@@ -159,7 +159,7 @@ void DisplayView::paint(juce::Graphics& g)
                                                               static_cast<float>(rowHeight - 2)), 9.0f);
             }
             g.setColour(juce::Colour(0xffd94712));
-            g.setFont(juce::FontOptions(juce::jlimit(15.0f, 25.0f, lyricSize * 0.72f), juce::Font::bold));
+            g.setFont(juce::FontOptions(juce::jlimit(13.0f, 21.0f, lyricSize * 0.70f), juce::Font::bold));
             g.drawFittedText(chords[i], chordArea, juce::Justification::centredLeft, 1);
             g.setColour(juce::Colour(0xff111827));
             g.setFont(juce::FontOptions(lyricSize, i == 0 ? juce::Font::bold : juce::Font::plain));

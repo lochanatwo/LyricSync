@@ -218,12 +218,11 @@ int ServerManager::secondaryScrollController() const
 }
 bool ServerManager::isScrollController(int id) const
 {
-    std::lock_guard<std::mutex> lock(stateMutex);
-    return id == activeScrollController || id == activeSecondaryScrollController;
+    return id > 0;
 }
 bool ServerManager::hostControlsScroll() const
 {
-    return isScrollController(0);
+    return true;
 }
 int ServerManager::scrollLine() const
 {
@@ -234,7 +233,6 @@ void ServerManager::setScrollLine(int line)
 {
     {
         std::lock_guard<std::mutex> lock(stateMutex);
-        if (activeScrollController != 0 && activeSecondaryScrollController != 0) return;
         const auto bounded = std::max(-1, line);
         if (activeScrollLine == bounded) return;
         activeScrollLine = bounded;

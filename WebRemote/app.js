@@ -60,7 +60,7 @@
   };
   const refreshChords=()=>{renderSequence+=1;lyrics.replaceChildren();lastRenderedActive=-1;lastActive=-2;};
   const position = () => !state ? 0 : state.position + (state.playing ? Math.max(0,performance.now()+hostOffset+prefs.nudge-state.hostMs)/1000 : 0);
-  const canControlScroll = () => !!state&&clientId>0&&(state.controllerId===clientId||state.controllerId2===clientId);
+  const canControlScroll = () => !!state&&clientId>0;
   const isChordOnly = text => {
     const tokens=text.trim().split(/\s+/).filter(Boolean); if(!tokens.length)return false;
     let chords=0;
@@ -97,7 +97,7 @@
     const lines=[...lyrics.querySelectorAll('.chord-row,.lyric-row')]; if(!lines.length)return;
     const longest=Math.max(8,...lines.map(line=>line.textContent.length));
     const width=Math.max(180,card.clientWidth-56),height=Math.max(150,card.clientHeight-92);
-    const size=Math.max(13,Math.min(64,Math.floor(width/(longest*.58)),Math.floor(height/10.5)));
+    const size=Math.max(12,Math.min(56,Math.floor(width/(longest*.64)),Math.floor(height/11.7)));
     lyrics.style.fontSize=`${size}px`;
   };
   const renderRows = active => {
