@@ -101,7 +101,8 @@
     const longest=Math.max(8,...lines.map(line=>line.textContent.length));
     const width=Math.max(120,lyrics.clientWidth-(window.innerWidth<=760?40:8));
     const height=Math.max(100,lyrics.clientHeight);
-    const size=Math.max(8,Math.min(32,Math.floor(width/(longest*.62)),Math.floor(height/(visibleRowCount()*2.04))));
+    const widthFit=Math.floor(width/(longest*.62));
+    const size=Math.max(8,Math.min(32,Math.floor(widthFit*prefs.zoomPercent/100),Math.floor(height/(visibleRowCount()*2.04))));
     lyrics.style.fontSize=`${size}px`;
   };
   const renderRows = active => {
