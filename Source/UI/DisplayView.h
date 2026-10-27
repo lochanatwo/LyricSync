@@ -34,11 +34,14 @@ private:
     juce::ComboBox targetKeyChoice;
     ShortcutTextEditor songSearch;
     juce::ComboBox songResults;
+    juce::TextButton zoomOutButton { "−" }, zoomInButton { "+" };
+    juce::Label zoomStatus;
     juce::TextButton upButton { juce::String::charToString(0x2191) };
     juce::TextButton downButton { juce::String::charToString(0x2193) };
     std::array<juce::String, 25> visibleChords, visibleLyrics;
     std::array<juce::String, 25> previousChords, previousLyrics;
     std::vector<int> matchingSongIndices;
+    int visibleRowCount = 15;
     juce::String titleText, clockText, transposeText, roleText, sectionText, keyText, displayedSongId;
     int displaySourceIndex = -1;
     int animationDirection = 1;

@@ -46,6 +46,9 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
     addAndMakeVisible(targetKeyChoice);
     addAndMakeVisible(songSearch);
     addAndMakeVisible(songResults);
+    addAndMakeVisible(zoomOutButton);
+    addAndMakeVisible(zoomInButton);
+    addAndMakeVisible(zoomStatus);
     addAndMakeVisible(upButton);
     addAndMakeVisible(downButton);
     upButton.onClick = [this] { processor.moveSharedScrollLine(-2); };
@@ -115,6 +118,19 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
             grabKeyboardFocus();
         }
     };
+    zoomStatus.setJustificationType(juce::Justification::centred);
+    zoomOutButton.setTooltip("Smaller text, more lines on this screen");
+    zoomInButton.setTooltip("Larger text, fewer lines on this screen");
+    zoomOutButton.onClick = [this]
+    {
+        processor.setHostZoomPercent(processor.getHostZoomPercent() - 10);
+        timerCallback();
+    };
+    zoomInButton.onClick = [this]
+    {
+        processor.setHostZoomPercent(processor.getHostZoomPercent() + 10);
+        timerCallback();
+    };
     for (auto* button : { &upButton, &downButton })
     {
         button->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1b2937));
@@ -141,16 +157,16 @@ void DisplayView::paint(juce::Graphics& g)
     auto sheet = getLocalBounds().reduced(20);
     sheet.removeFromTop(112);
     sheet.removeFromBottom(18);
-    g.setColour(juce::Colour(0xfffffdf8));
+    g.setColour(juce::Colour(0xff101825));
     g.fillRoundedRectangle(sheet.toFloat(), 22.0f);
-    g.setColour(juce::Colour(0x22000000));
+    g.setColour(juce::Colour(0xff35475d));
     g.drawRoundedRectangle(sheet.toFloat(), 22.0f, 1.0f);
 
     auto sheetHeader = sheet.reduced(30, 18).removeFromTop(28);
     auto sectionBadge = sheetHeader.removeFromLeft(juce::jmin(220, sheetHeader.getWidth() / 2));
-    g.setColour(juce::Colour(0xffe9eef3));
+    g.setColour(juce::Colour(0xff203247));
     g.fillRoundedRectangle(sectionBadge.toFloat(), 6.0f);
-    g.setColour(juce::Colour(0xff334155));
+    g.setColour(juce::Colour(0xffd9e7f2));
     g.setFont(juce::FontOptions(13.0f, juce::Font::bold));
     g.drawFittedText(sectionText.isNotEmpty() ? sectionText : "SONG", sectionBadge.reduced(9, 2),
                      juce::Justification::centredLeft, 1);
@@ -158,34 +174,34 @@ void DisplayView::paint(juce::Graphics& g)
     auto currentArea = sheet.reduced(20, 32);
     currentArea.removeFromTop(20);
     currentArea.removeFromRight(48);
-    const auto rowHeight = juce::jmax(1, currentArea.getHeight() / static_cast<int>(visibleLyrics.size()));
+    const auto rowHeight = juce::jmax(1, currentArea.getHeight() / visibleRowCount);
     const auto lyricSize = proportional.getToggleState()
-        ? juce::jlimit(7.0f, 14.0f, static_cast<float>(rowHeight) * 0.48f)
-        : juce::jlimit(7.0f, 13.0f, static_cast<float>(rowHeight) * 0.45f);
+        ? juce::jlimit(8.0f, 32.0f, static_cast<float>(rowHeight) * 0.50f)
+        : juce::jlimit(8.0f, 30.0f, static_cast<float>(rowHeight) * 0.48f);
     const auto drawRows = [&](const std::array<juce::String, 25>& chords,
                               const std::array<juce::String, 25>& lyricLines, float offset)
     {
         auto area = currentArea.translated(0, juce::roundToInt(offset));
         const juce::Graphics::ScopedSaveState save(g);
         g.reduceClipRegion(currentArea);
-        for (std::size_t i = 0; i < lyricLines.size(); ++i)
+        for (int i = 0; i < visibleRowCount; ++i)
         {
             auto row = area.removeFromTop(rowHeight);
             auto chordArea = row.removeFromTop(juce::jmax(1, row.getHeight() / 2));
             if (i == 0)
             {
-                g.setColour(juce::Colour(0x1658e0b6));
+                g.setColour(juce::Colour(0xff173547));
                 g.fillRoundedRectangle(juce::Rectangle<float>(static_cast<float>(sheet.getX() + 12),
                                                               static_cast<float>(chordArea.getY() - 4),
                                                               static_cast<float>(sheet.getWidth() - 24),
                                                               static_cast<float>(rowHeight - 2)), 9.0f);
             }
-            g.setColour(juce::Colour(0xffd94712));
-            g.setFont(juce::FontOptions(juce::jlimit(7.0f, 12.0f, lyricSize * 0.94f), juce::Font::bold));
-            g.drawFittedText(chords[i], chordArea, juce::Justification::centredLeft, 1);
-            g.setColour(juce::Colour(0xff111827));
+            g.setColour(juce::Colour(0xffb9dfff));
+            g.setFont(juce::FontOptions(juce::jlimit(8.0f, 30.0f, lyricSize * 0.96f), juce::Font::bold));
+            g.drawFittedText(chords[static_cast<std::size_t>(i)], chordArea, juce::Justification::centredLeft, 1);
+            g.setColour(juce::Colour(0xfff5f7fa));
             g.setFont(juce::FontOptions(lyricSize, i == 0 ? juce::Font::bold : juce::Font::plain));
-            g.drawFittedText(lyricLines[i], row, juce::Justification::centredLeft, 1);
+            g.drawFittedText(lyricLines[static_cast<std::size_t>(i)], row, juce::Justification::centredLeft, 1);
         }
     };
     if (animationStartMilliseconds > 0.0)
@@ -226,6 +242,10 @@ void DisplayView::resized()
     songSearch.setBounds(tempoAndKey.removeFromLeft(190));
     tempoAndKey.removeFromLeft(6);
     songResults.setBounds(tempoAndKey.removeFromLeft(190));
+    tempoAndKey.removeFromLeft(6);
+    zoomOutButton.setBounds(tempoAndKey.removeFromLeft(32));
+    zoomStatus.setBounds(tempoAndKey.removeFromLeft(50));
+    zoomInButton.setBounds(tempoAndKey.removeFromLeft(32));
     auto controls = getLocalBounds().removeFromRight(82).withSizeKeepingCentre(62, 154);
     upButton.setBounds(controls.removeFromTop(70));
     controls.removeFromTop(14);
@@ -257,6 +277,15 @@ void DisplayView::refreshSongMatches()
 }
 void DisplayView::timerCallback()
 {
+    const auto zoomPercent = processor.getHostZoomPercent();
+    const auto desiredRows = juce::jlimit(8, 25, juce::roundToInt(1500.0 / static_cast<double>(zoomPercent)));
+    if (desiredRows != visibleRowCount)
+    {
+        visibleRowCount = desiredRows;
+        displaySourceIndex = -1;
+        animationStartMilliseconds = 0.0;
+    }
+    zoomStatus.setText(juce::String(zoomPercent) + "%", juce::dontSendNotification);
     const auto model = processor.getSetlistSnapshot();
     const auto* song = model.activeSong();
     const auto songId = song != nullptr ? juce::String(song->id.c_str()) : juce::String();
@@ -324,7 +353,7 @@ void DisplayView::timerCallback()
             sectionText = blocks[start].section;
             nextSourceIndex = static_cast<int>(start);
         }
-        for (std::size_t i = 0; i < visibleLyrics.size() && start + i < blocks.size(); ++i)
+        for (std::size_t i = 0; i < static_cast<std::size_t>(visibleRowCount) && start + i < blocks.size(); ++i)
         {
             nextChords[i] = juce::String(voclyrics::transposeChordLine(
                 blocks[start + i].chords.toStdString(), processor.getTransposeSemitones()));
@@ -338,7 +367,7 @@ void DisplayView::timerCallback()
             previousChords = visibleChords;
             previousLyrics = visibleLyrics;
             animationDirection = nextSourceIndex > displaySourceIndex ? 1 : -1;
-            animationRows = juce::jlimit(1, 25, std::abs(nextSourceIndex - displaySourceIndex));
+            animationRows = juce::jlimit(1, visibleRowCount, std::abs(nextSourceIndex - displaySourceIndex));
             animationStartMilliseconds = juce::Time::getMillisecondCounterHiRes();
         }
         displaySourceIndex = nextSourceIndex;

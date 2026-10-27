@@ -7,13 +7,13 @@
   if(isStandalone)document.documentElement.classList.add('standalone');
   const roles = ['Main Singer','Backup Singer','Main Guitar','Rythm Guitar','Drummer','Percussionist','Bass','Keys'];
   const keyNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-  const visibleRowCount=25;
   const {pitchForKey,transposeBetween,transposeChordLine}=window.VocLyricsKeyLogic;
   const key = 'voclyrics.remote.v2';
-  const defaults = {proportional:true, clock:false, nudge:0, transpose:0, role:'', targetKeys:{}, sourceKeys:{}};
+  const defaults = {proportional:true, clock:false, nudge:0, transpose:0, zoomPercent:100, role:'', targetKeys:{}, sourceKeys:{}};
   let prefs = {...defaults};
   try { prefs = {...defaults, ...JSON.parse(localStorage.getItem(key) || '{}')}; } catch (_) {}
   prefs.transpose = Number.isInteger(prefs.transpose) ? Math.max(-12, Math.min(12, prefs.transpose)) : 0;
+  prefs.zoomPercent=Number.isInteger(prefs.zoomPercent)?Math.max(60,Math.min(180,prefs.zoomPercent)):100;
   if(!prefs.targetKeys||typeof prefs.targetKeys!=='object'||Array.isArray(prefs.targetKeys))prefs.targetKeys={};
   if(!prefs.sourceKeys||typeof prefs.sourceKeys!=='object'||Array.isArray(prefs.sourceKeys))prefs.sourceKeys={};
   if (!roles.includes(prefs.role)) prefs.role = '';
@@ -40,9 +40,11 @@
     $('proportional').checked=prefs.proportional; $('show-clock').checked=prefs.clock; $('clock').style.display=prefs.clock?'':'none';
     $('nudge-value').textContent=`${prefs.nudge} ms`; $('transpose-status').textContent=`TRANSPOSED BY: ${prefs.transpose}`;
     $('role').value=prefs.role; $('role-badge').textContent=(prefs.role||'Choose role').toUpperCase();
+    $('zoom-value').textContent=`${prefs.zoomPercent}%`;
     screen.classList.toggle('fit-text',prefs.proportional);
   };
   const songPreferenceKey=()=>state&&state.songId?state.songId:(state&&state.title?`title:${state.title}`:'current');
+  const visibleRowCount=()=>Math.max(8,Math.min(25,Math.round(1500/prefs.zoomPercent)));
   const syncKeyControls=()=>{
     const preferenceKey=songPreferenceKey();
     const sourceChoice=$('source-key-choice');
@@ -99,7 +101,7 @@
     const longest=Math.max(8,...lines.map(line=>line.textContent.length));
     const width=Math.max(120,lyrics.clientWidth-(window.innerWidth<=760?40:8));
     const height=Math.max(100,lyrics.clientHeight);
-    const size=Math.max(7,Math.min(14,Math.floor(width/(longest*.64)),Math.floor(height/(visibleRowCount*2.05))));
+    const size=Math.max(8,Math.min(32,Math.floor(width/(longest*.62)),Math.floor(height/(visibleRowCount()*2.04))));
     lyrics.style.fontSize=`${size}px`;
   };
   const renderRows = active => {
@@ -108,7 +110,9 @@
     if(start>0&&blocks[start].index>active)start-=1;
     $('section-label').textContent=(blocks[start].section||'SONG').toUpperCase();
     const frame=document.createElement('div');frame.className='sheet-frame';
-    blocks.slice(start,start+visibleRowCount).forEach(block=>appendBlock(frame,block));
+    const shown=visibleRowCount();
+    frame.style.setProperty('--visible-rows',String(shown));
+    blocks.slice(start,start+shown).forEach(block=>appendBlock(frame,block));
     const oldFrames=[...lyrics.querySelectorAll('.sheet-frame')];
     oldFrames.slice(0,-1).forEach(old=>old.remove());
     const old=oldFrames.length?oldFrames[oldFrames.length-1]:null,direction=lastRenderedActive<0||active>=lastRenderedActive?1:-1;
@@ -212,6 +216,12 @@
     prefs.targetKeys[songPreferenceKey()]=target;prefs.transpose=transposeBetween(originalKeyPitch,target);
     save();applyPreferences();refreshChords();
   });
+  const changeZoom=delta=>{
+    prefs.zoomPercent=Math.max(60,Math.min(180,prefs.zoomPercent+delta));
+    save();applyPreferences();refreshChords();
+  };
+  $('zoom-out').addEventListener('click',()=>changeZoom(-10));
+  $('zoom-in').addEventListener('click',()=>changeZoom(10));
   $('source-key-choice').addEventListener('change',event=>{
     const value=event.target.value,preferenceKey=songPreferenceKey();
     if(value==='auto')delete prefs.sourceKeys[preferenceKey];

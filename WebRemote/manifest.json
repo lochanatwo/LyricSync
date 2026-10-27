@@ -1,7 +1,7 @@
 {
   "name": "VocLyrics Live",
   "short_name": "VocLyrics",
-  "start_url": "/?v=15",
+  "start_url": "/?v=16",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

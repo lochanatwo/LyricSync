@@ -91,6 +91,11 @@ public:
     bool isTapTempoEnabled() const noexcept { return tapScrollEnabled.load(std::memory_order_relaxed); }
     int getTapTempoBpm() const noexcept { return tapTempoBpm.load(std::memory_order_relaxed); }
     int getManualTempoBpm() const noexcept { return manualTempoBpm.load(std::memory_order_relaxed); }
+    int getHostZoomPercent() const noexcept { return hostZoomPercent.load(std::memory_order_relaxed); }
+    void setHostZoomPercent(int percent) noexcept
+    {
+        hostZoomPercent.store(juce::jlimit(60, 180, percent), std::memory_order_relaxed);
+    }
     int getTapTempoTapCount() const noexcept { return tapTempoClock.tapCount(); }
 
 private:
@@ -111,6 +116,7 @@ private:
     std::atomic<bool> tapScrollEnabled { false };
     std::atomic<int> tapTempoBpm { 0 };
     std::atomic<int> manualTempoBpm { 120 };
+    std::atomic<int> hostZoomPercent { 100 };
 
     mutable juce::CriticalSection modelLock;
     voclyrics::SetlistModel setlist;

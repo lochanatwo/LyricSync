@@ -66,7 +66,7 @@ void RemotePanel::paint(juce::Graphics& g)
     const auto selectedAddress = interfaceChoice.getText().isNotEmpty()
         ? interfaceChoice.getText() : voclyrics::NetworkUtils::preferredIPv4Address();
     const auto url = processor.getServer().isRunning()
-        ? juce::String("http://") + selectedAddress + ":" + juce::String(processor.getServer().port()) + "/?v=15"
+        ? juce::String("http://") + selectedAddress + ":" + juce::String(processor.getServer().port()) + "/?v=16"
         : juce::String("Server is off");
     if (processor.getServer().isRunning())
         voclyrics::QrCode::draw(g, juce::Rectangle<float>(getWidth() * 0.5f - 65.0f, 62.0f, 130.0f, 130.0f), url);

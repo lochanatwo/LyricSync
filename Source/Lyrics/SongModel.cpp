@@ -77,6 +77,29 @@ int songKeyPitchClass(const Song& song)
     {
         const auto pitch = keyPitchClass(line.text);
         if (pitch >= 0) return pitch;
+        const auto& text = line.text;
+        for (std::size_t i = 0; i + 3 < text.size(); ++i)
+        {
+            if (i > 0 && std::isalnum(static_cast<unsigned char>(text[i - 1]))) continue;
+            if (std::tolower(static_cast<unsigned char>(text[i])) != 'k'
+                || std::tolower(static_cast<unsigned char>(text[i + 1])) != 'e'
+                || std::tolower(static_cast<unsigned char>(text[i + 2])) != 'y') continue;
+            auto position = i + 3;
+            while (position < text.size() && std::isspace(static_cast<unsigned char>(text[position]))) ++position;
+            if (position >= text.size() || (text[position] != '-' && text[position] != ':')) continue;
+            ++position;
+            while (position < text.size() && std::isspace(static_cast<unsigned char>(text[position]))) ++position;
+            if (position >= text.size()) continue;
+            const auto root = static_cast<char>(std::toupper(static_cast<unsigned char>(text[position++])));
+            if (root < 'A' || root > 'G') continue;
+            char accidental = '\0';
+            if (position < text.size() && (text[position] == '#' || text[position] == 'b'))
+                accidental = text[position];
+            else if (text.compare(position, 3, "\xe2\x99\xaf") == 0) accidental = '#';
+            else if (text.compare(position, 3, "\xe2\x99\xad") == 0) accidental = 'b';
+            static constexpr int naturalPitches[] { 9, 11, 0, 2, 4, 5, 7 };
+            return (naturalPitches[root - 'A'] + (accidental == '#' ? 1 : accidental == 'b' ? -1 : 0) + 12) % 12;
+        }
     }
     return -1;
 }

@@ -537,6 +537,7 @@ void VocLyricsAudioProcessor::getStateInformation(juce::MemoryBlock& destination
     root.setProperty("hostRole", hostRole, nullptr);
     root.setProperty("autoScrollLinesPerMinute", getAutoScrollLinesPerMinute(), nullptr);
     root.setProperty("manualTempoBpm", getManualTempoBpm(), nullptr);
+    root.setProperty("hostZoomPercent", getHostZoomPercent(), nullptr);
     for (const auto& song : setlist.songs())
     {
         juce::ValueTree child("Song");
@@ -604,6 +605,7 @@ void VocLyricsAudioProcessor::setStateInformation(const void* data, int size)
     setAutoScrollLinesPerMinute(static_cast<int>(root.getProperty("autoScrollLinesPerMinute", 12)));
     manualTempoBpm.store(juce::jlimit(8, 300, static_cast<int>(root.getProperty("manualTempoBpm", 120))),
                          std::memory_order_relaxed);
+    setHostZoomPercent(static_cast<int>(root.getProperty("hostZoomPercent", 100)));
     setAutoScrollEnabled(false);
     stopTapTempo();
     hostRole = root.getProperty("hostRole", "Main Singer").toString();

@@ -49,6 +49,10 @@ void testLiveTaggerAndSetlist()
            "Flat key metadata beside transpose amount must be recognized");
     expect(voclyrics::keyPitchClass("\xef\xbb\xbfKey- A\xe2\x99\xaf") == 10,
            "UTF-8 file marker and sharp sign should still reveal the source key");
+    voclyrics::Song inlineKeySong;
+    inlineKeySong.lyrics = voclyrics::LrcParser::parse("--Ran Sinu Nada Dee-- Key-D\n[Intro]\nD\nFirst lyric\n");
+    expect(voclyrics::songKeyPitchClass(inlineKeySong) == 2,
+           "The song key should be found beside the title, as in imported chord sheets");
     song.sourceKeyOverride = 9;
     expect(voclyrics::songKeyPitchClass(song) == 9, "Explicit source key should override unrecognized file metadata");
     expect(voclyrics::transposeSemitonesForKeys(voclyrics::songKeyPitchClass(song), 0) == 3,
