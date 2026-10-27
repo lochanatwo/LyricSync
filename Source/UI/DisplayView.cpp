@@ -44,6 +44,8 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
     addAndMakeVisible(autoScrollSpeed);
     addAndMakeVisible(sourceKeyChoice);
     addAndMakeVisible(targetKeyChoice);
+    addAndMakeVisible(songSearch);
+    addAndMakeVisible(songResults);
     addAndMakeVisible(upButton);
     addAndMakeVisible(downButton);
     upButton.onClick = [this] { processor.moveSharedScrollLine(-2); };
@@ -93,6 +95,26 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
         if (sourcePitch >= 0 && targetPitch >= 0)
             processor.setTargetKeyForActiveSong(targetPitch);
     };
+    songSearch.setTextToShowWhenEmpty("Search songs (Ctrl+F)", juce::Colour(0xff728096));
+    songSearch.onTextChange = [this] { refreshSongMatches(); };
+    songSearch.onReturnKey = [this]
+    {
+        if (! matchingSongIndices.empty())
+        {
+            processor.selectSong(matchingSongIndices.front());
+            grabKeyboardFocus();
+        }
+    };
+    songResults.setTextWhenNothingSelected("Song matches");
+    songResults.onChange = [this]
+    {
+        const auto index = songResults.getSelectedId() - 1;
+        if (index >= 0)
+        {
+            processor.selectSong(index);
+            grabKeyboardFocus();
+        }
+    };
     for (auto* button : { &upButton, &downButton })
     {
         button->setColour(juce::TextButton::buttonColourId, juce::Colour(0xff1b2937));
@@ -133,15 +155,15 @@ void DisplayView::paint(juce::Graphics& g)
     g.drawFittedText(sectionText.isNotEmpty() ? sectionText : "SONG", sectionBadge.reduced(9, 2),
                      juce::Justification::centredLeft, 1);
 
-    auto currentArea = sheet.reduced(30, 54);
-    currentArea.removeFromTop(8);
+    auto currentArea = sheet.reduced(20, 32);
+    currentArea.removeFromTop(20);
     currentArea.removeFromRight(48);
     const auto rowHeight = juce::jmax(1, currentArea.getHeight() / static_cast<int>(visibleLyrics.size()));
     const auto lyricSize = proportional.getToggleState()
-        ? juce::jlimit(15.0f, 31.0f, static_cast<float>(rowHeight) * 0.35f)
-        : juce::jlimit(15.0f, 27.0f, static_cast<float>(rowHeight) * 0.31f);
-    const auto drawRows = [&](const std::array<juce::String, 5>& chords,
-                              const std::array<juce::String, 5>& lyricLines, float offset)
+        ? juce::jlimit(7.0f, 14.0f, static_cast<float>(rowHeight) * 0.48f)
+        : juce::jlimit(7.0f, 13.0f, static_cast<float>(rowHeight) * 0.45f);
+    const auto drawRows = [&](const std::array<juce::String, 25>& chords,
+                              const std::array<juce::String, 25>& lyricLines, float offset)
     {
         auto area = currentArea.translated(0, juce::roundToInt(offset));
         const juce::Graphics::ScopedSaveState save(g);
@@ -149,7 +171,7 @@ void DisplayView::paint(juce::Graphics& g)
         for (std::size_t i = 0; i < lyricLines.size(); ++i)
         {
             auto row = area.removeFromTop(rowHeight);
-            auto chordArea = row.removeFromTop(juce::jlimit(18, 31, row.getHeight() / 3));
+            auto chordArea = row.removeFromTop(juce::jmax(1, row.getHeight() / 2));
             if (i == 0)
             {
                 g.setColour(juce::Colour(0x1658e0b6));
@@ -159,7 +181,7 @@ void DisplayView::paint(juce::Graphics& g)
                                                               static_cast<float>(rowHeight - 2)), 9.0f);
             }
             g.setColour(juce::Colour(0xffd94712));
-            g.setFont(juce::FontOptions(juce::jlimit(13.0f, 21.0f, lyricSize * 0.70f), juce::Font::bold));
+            g.setFont(juce::FontOptions(juce::jlimit(7.0f, 12.0f, lyricSize * 0.94f), juce::Font::bold));
             g.drawFittedText(chords[i], chordArea, juce::Justification::centredLeft, 1);
             g.setColour(juce::Colour(0xff111827));
             g.setFont(juce::FontOptions(lyricSize, i == 0 ? juce::Font::bold : juce::Font::plain));
@@ -200,10 +222,38 @@ void DisplayView::resized()
     useManualBpmButton.setBounds(tempoAndKey.removeFromLeft(92));
     sourceKeyChoice.setBounds(tempoAndKey.removeFromLeft(115));
     targetKeyChoice.setBounds(tempoAndKey.removeFromLeft(120));
+    tempoAndKey.removeFromLeft(6);
+    songSearch.setBounds(tempoAndKey.removeFromLeft(190));
+    tempoAndKey.removeFromLeft(6);
+    songResults.setBounds(tempoAndKey.removeFromLeft(190));
     auto controls = getLocalBounds().removeFromRight(82).withSizeKeepingCentre(62, 154);
     upButton.setBounds(controls.removeFromTop(70));
     controls.removeFromTop(14);
     downButton.setBounds(controls.removeFromTop(70));
+}
+void DisplayView::visibilityChanged()
+{
+    if (isVisible()) refreshSongMatches();
+}
+void DisplayView::focusSongSearch()
+{
+    songSearch.grabKeyboardFocus();
+    songSearch.selectAll();
+}
+void DisplayView::refreshSongMatches()
+{
+    const auto model = processor.getSetlistSnapshot();
+    const auto query = songSearch.getText().trim();
+    matchingSongIndices.clear();
+    songResults.clear(juce::dontSendNotification);
+    for (int i = 0; i < static_cast<int>(model.songs().size()); ++i)
+    {
+        const auto title = juce::String(model.songs()[static_cast<std::size_t>(i)].title.c_str());
+        if (query.isNotEmpty() && ! title.containsIgnoreCase(query)) continue;
+        matchingSongIndices.push_back(i);
+        songResults.addItem(title, i + 1);
+    }
+    songResults.setTextWhenNothingSelected(matchingSongIndices.empty() ? "No songs found" : "Song matches");
 }
 void DisplayView::timerCallback()
 {
@@ -230,7 +280,7 @@ void DisplayView::timerCallback()
         : juce::String("Add Key- A#");
     roleText = processor.getHostRole().toUpperCase();
     sectionText = "SONG";
-    std::array<juce::String, 5> nextChords, nextLyrics;
+    std::array<juce::String, 25> nextChords, nextLyrics;
     auto nextSourceIndex = -1;
     if (song != nullptr && ! song->lyrics.empty())
     {
@@ -288,7 +338,7 @@ void DisplayView::timerCallback()
             previousChords = visibleChords;
             previousLyrics = visibleLyrics;
             animationDirection = nextSourceIndex > displaySourceIndex ? 1 : -1;
-            animationRows = juce::jlimit(1, 5, std::abs(nextSourceIndex - displaySourceIndex));
+            animationRows = juce::jlimit(1, 25, std::abs(nextSourceIndex - displaySourceIndex));
             animationStartMilliseconds = juce::Time::getMillisecondCounterHiRes();
         }
         displaySourceIndex = nextSourceIndex;

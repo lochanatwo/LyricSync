@@ -7,6 +7,7 @@
   if(isStandalone)document.documentElement.classList.add('standalone');
   const roles = ['Main Singer','Backup Singer','Main Guitar','Rythm Guitar','Drummer','Percussionist','Bass','Keys'];
   const keyNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const visibleRowCount=25;
   const {pitchForKey,transposeBetween,transposeChordLine}=window.VocLyricsKeyLogic;
   const key = 'voclyrics.remote.v2';
   const defaults = {proportional:true, clock:false, nudge:0, transpose:0, role:'', targetKeys:{}, sourceKeys:{}};
@@ -96,8 +97,9 @@
     const card=document.querySelector('.now-card'); if(!card)return;
     const lines=[...lyrics.querySelectorAll('.chord-row,.lyric-row')]; if(!lines.length)return;
     const longest=Math.max(8,...lines.map(line=>line.textContent.length));
-    const width=Math.max(180,card.clientWidth-56),height=Math.max(150,card.clientHeight-92);
-    const size=Math.max(12,Math.min(56,Math.floor(width/(longest*.64)),Math.floor(height/11.7)));
+    const width=Math.max(120,lyrics.clientWidth-(window.innerWidth<=760?40:8));
+    const height=Math.max(100,lyrics.clientHeight);
+    const size=Math.max(7,Math.min(14,Math.floor(width/(longest*.64)),Math.floor(height/(visibleRowCount*2.05))));
     lyrics.style.fontSize=`${size}px`;
   };
   const renderRows = active => {
@@ -106,7 +108,7 @@
     if(start>0&&blocks[start].index>active)start-=1;
     $('section-label').textContent=(blocks[start].section||'SONG').toUpperCase();
     const frame=document.createElement('div');frame.className='sheet-frame';
-    blocks.slice(start,start+5).forEach(block=>appendBlock(frame,block));
+    blocks.slice(start,start+visibleRowCount).forEach(block=>appendBlock(frame,block));
     const oldFrames=[...lyrics.querySelectorAll('.sheet-frame')];
     oldFrames.slice(0,-1).forEach(old=>old.remove());
     const old=oldFrames.length?oldFrames[oldFrames.length-1]:null,direction=lastRenderedActive<0||active>=lastRenderedActive?1:-1;

@@ -23,3 +23,12 @@ footer{display:flex;justify-content:space-between;width:min(1120px,100%);margin:
 header{margin:4px 0 6px}
 footer{margin:4px auto 0}
 @media(max-width:760px){#screen{padding:4px}nav{min-height:22px}header{margin:2px 0 4px}.stage{width:100%;padding-right:0}.now-card{padding:9px;border-radius:10px}.scroll-controls{right:6px;gap:5px}.scroll-controls button{width:34px;height:42px;border-radius:10px}#lyrics{padding-right:34px}footer{display:none}}
+#lyrics{font-size:10px}
+.sheet-frame{justify-content:flex-start;gap:0}
+.lyric-block{flex:0 0 4%;height:4%;min-height:0}
+.chord-row,.lyric-row{height:50%;min-height:0;line-height:1}
+.sheet-frame.enter-below{transform:translateY(12%)}
+.sheet-frame.enter-above{transform:translateY(-12%)}
+.sheet-frame.slide-centre{transform:translateY(0)}
+.sheet-frame.exit-up{transform:translateY(-12%)}
+.sheet-frame.exit-down{transform:translateY(12%)}

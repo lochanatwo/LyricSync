@@ -14,6 +14,14 @@ VocLyricsAudioProcessorEditor::VocLyricsAudioProcessorEditor(VocLyricsAudioProce
     setWantsKeyboardFocus(true);
     setlist.setShortcutHandler([this](const juce::KeyPress& key) { return keyPressed(key); });
     editor.setShortcutHandler([this](const juce::KeyPress& key) { return keyPressed(key); });
+    display.setShortcutHandler([this](const juce::KeyPress& key)
+    {
+        if (key.getModifiers().isCommandDown()
+            && (key.getKeyCode() == 'F' || key.getKeyCode() == 'f')) return keyPressed(key);
+        if (key.getModifiers().isShiftDown() && key.getKeyCode() == juce::KeyPress::spaceKey)
+            return keyPressed(key);
+        return false;
+    });
     display.setVisible(false);
     displayToggle.onClick = [this]
     {
@@ -65,6 +73,11 @@ bool VocLyricsAudioProcessorEditor::keyPressed(const juce::KeyPress& key)
     if (key.getModifiers().isCommandDown()
         && (key.getKeyCode() == 'F' || key.getKeyCode() == 'f'))
     {
+        if (displayMode)
+        {
+            display.focusSongSearch();
+            return true;
+        }
         manualDisplayMode = false;
         timerCallback();
         setlist.focusSearch();
