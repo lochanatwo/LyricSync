@@ -73,6 +73,7 @@ public:
         transposeSemitones.store(juce::jlimit(-12, 12, semitones), std::memory_order_relaxed);
     }
     void setTargetKeyForActiveSong(int targetPitchClass);
+    void setSourceKeyForActiveSong(int sourcePitchClass);
     juce::String getHostRole() const;
     void setHostRole(const juce::String& role);
     int getSharedScrollLine() const { return server.scrollLine(); }
@@ -88,6 +89,7 @@ public:
     void stopTapTempo();
     bool isTapTempoEnabled() const noexcept { return tapScrollEnabled.load(std::memory_order_relaxed); }
     int getTapTempoBpm() const noexcept { return tapTempoBpm.load(std::memory_order_relaxed); }
+    int getTapTempoTapCount() const noexcept { return tapTempoClock.tapCount(); }
 
 private:
     void publishTransport() noexcept;

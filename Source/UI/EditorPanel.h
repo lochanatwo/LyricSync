@@ -30,6 +30,7 @@ private:
     juce::Label autoScrollSpeedLabel;
     juce::Slider autoScrollSpeed;
     juce::Label originalKeyStatus;
+    juce::ComboBox sourceKeyChoice;
     juce::Label transposeStatus;
     juce::ComboBox transposeChoice;
     std::unique_ptr<juce::FileChooser> chooser;

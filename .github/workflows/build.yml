@@ -14,7 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Check browser script syntax
-        run: node --check WebRemote/app.js
+        run: |
+          node --check WebRemote/app.js
+          node --check WebRemote/key-logic.js
+          node --test Tests/KeyLogic.test.js
       - name: Configure
         run: cmake -S . -B build -DBUILD_TESTING=ON
       - name: Build standalone app and tests

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(VocLyrics VERSION 1.2.0 LANGUAGES C CXX)
+project(VocLyrics VERSION 1.3.0 LANGUAGES C CXX)
 
 include(FetchContent)
 
@@ -40,7 +40,7 @@ target_compile_features(qrcodegen PUBLIC cxx_std_11)
 juce_add_binary_data(VocLyricsWeb
     NAMESPACE VocLyricsWeb
     HEADER_NAME VocLyricsWebData.h
-    SOURCES WebRemote/index.html WebRemote/app.js WebRemote/style.css WebRemote/manifest.json)
+    SOURCES WebRemote/index.html WebRemote/app.js WebRemote/key-logic.js WebRemote/style.css WebRemote/manifest.json)
 
 juce_add_plugin(VocLyrics
     COMPANY_NAME "VocLyrics"

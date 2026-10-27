@@ -101,6 +101,7 @@ bool ServerManager::start(int preferredPort)
             mg_set_request_handler(context, "/", &ServerManager::serveIndex, this);
             mg_set_request_handler(context, "/index.html", &ServerManager::serveIndex, this);
             mg_set_request_handler(context, "/app.js", &ServerManager::serveScript, this);
+            mg_set_request_handler(context, "/key-logic.js", &ServerManager::serveKeyLogic, this);
             mg_set_request_handler(context, "/style.css", &ServerManager::serveStyle, this);
             mg_set_request_handler(context, "/manifest.json", &ServerManager::serveManifest, this);
             mg_set_request_handler(context, "/state", &ServerManager::serveState, this);
@@ -287,6 +288,10 @@ int ServerManager::serveIndex(mg_connection* connection, void*)
 int ServerManager::serveScript(mg_connection* connection, void*)
 {
     return sendAsset(connection, "text/javascript; charset=utf-8", VocLyricsWeb::app_js, VocLyricsWeb::app_jsSize);
+}
+int ServerManager::serveKeyLogic(mg_connection* connection, void*)
+{
+    return sendAsset(connection, "text/javascript; charset=utf-8", VocLyricsWeb::key_logic_js, VocLyricsWeb::key_logic_jsSize);
 }
 int ServerManager::serveStyle(mg_connection* connection, void*)
 {

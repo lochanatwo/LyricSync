@@ -7,25 +7,22 @@
   if(isStandalone)document.documentElement.classList.add('standalone');
   const roles = ['Main Singer','Backup Singer','Main Guitar','Rythm Guitar','Drummer','Percussionist','Bass','Keys'];
   const keyNames = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+  const {pitchForKey,transposeBetween,transposeChordLine}=window.VocLyricsKeyLogic;
   const key = 'voclyrics.remote.v2';
-  const defaults = {proportional:true, clock:false, nudge:0, transpose:0, role:'', targetKeys:{}};
+  const defaults = {proportional:true, clock:false, nudge:0, transpose:0, role:'', targetKeys:{}, sourceKeys:{}};
   let prefs = {...defaults};
   try { prefs = {...defaults, ...JSON.parse(localStorage.getItem(key) || '{}')}; } catch (_) {}
   prefs.transpose = Number.isInteger(prefs.transpose) ? Math.max(-12, Math.min(12, prefs.transpose)) : 0;
   if(!prefs.targetKeys||typeof prefs.targetKeys!=='object'||Array.isArray(prefs.targetKeys))prefs.targetKeys={};
+  if(!prefs.sourceKeys||typeof prefs.sourceKeys!=='object'||Array.isArray(prefs.sourceKeys))prefs.sourceKeys={};
   if (!roles.includes(prefs.role)) prefs.role = '';
-  let socket, state = null, rows = [], renderedLyrics = null, renderedSongId = '', originalKeyPitch = -1, hostOffset = 0, retry = 0, wakeLock = null, clientId = 0, pointerY = null, dragAccumulator = 0, dragging = false, lastActive = -2, lastRenderedActive = -1, renderSequence = 0, polling = false;
+  let socket, state = null, rows = [], renderedLyrics = null, renderedSongId = '', originalKeyPitch = -1, reportedKeyPitch = -1, hostOffset = 0, retry = 0, wakeLock = null, clientId = 0, pointerY = null, dragAccumulator = 0, dragging = false, lastActive = -2, lastRenderedActive = -1, renderSequence = 0, polling = false;
   const save = () => { try { localStorage.setItem(key, JSON.stringify(prefs)); } catch (_) {} };
-  const pitchForKey = (root,accidental='') => {
-    const natural={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
-    const base=natural[String(root).toUpperCase()]; if(!Number.isInteger(base))return -1;
-    return (base+(accidental==='#'?1:accidental==='b'?-1:0)+12)%12;
-  };
   const parse = source => source.split(/\r?\n/).map(line => {
     const m = line.match(/^\[(\d+):(\d{1,2})(?:[.,](\d{1,3}))?\](.*)$/);
     const time=m?Number(m[1])*60+Number(m[2])+Number(('0.'+(m[3]||'0')).slice(0,5)):-1;
     const text=m?m[4]:line;
-    const keyLine=text.match(/^\s*key\s*[-:]\s*([A-G])([#b]?)(?:\s*(?:\||\()?\s*transposed by:\s*[+-]?\d+\s*\)?)?\s*$/i);
+    const keyLine=text.match(/^\s*key\s*[-:]\s*([A-G])([#b♯♭]?)(?:\s*(?:\||\()?\s*transposed by:\s*[+-]?\d+\s*\)?)?\s*$/i);
     if(keyLine)return {time,text,section:false,key:true,keyPitch:pitchForKey(keyLine[1],keyLine[2])};
     if(m)return {time,text,section:false};
     const section = text.match(/^\[([^\]]+)\]$/);
@@ -35,6 +32,7 @@
   $('role').innerHTML = roleOptions;
   $('role-first').innerHTML = `<option value="" disabled selected>Select your role</option>${roleOptions}`;
   $('target-key').innerHTML=keyNames.map((name,index)=>`<option value="${index}">${name}</option>`).join('');
+  $('source-key-choice').innerHTML='<option value="auto">File</option>'+keyNames.map((name,index)=>`<option value="${index}">${name}</option>`).join('');
   const identify = () => { if (socket && socket.readyState === WebSocket.OPEN && prefs.role) socket.send(JSON.stringify({type:'hello',name:prefs.role})); };
   const chooseRole = role => { if (!roles.includes(role)) return; prefs.role=role; save(); applyPreferences(); $('role-setup').classList.add('hidden'); identify(); };
   const applyPreferences = () => {
@@ -44,18 +42,23 @@
     screen.classList.toggle('fit-text',prefs.proportional);
   };
   const songPreferenceKey=()=>state&&state.songId?state.songId:(state&&state.title?`title:${state.title}`:'current');
-  const transposeBetween=(source,target)=>{let amount=(target-source+12)%12;if(amount>6)amount-=12;return amount;};
   const syncKeyControls=()=>{
-    const select=$('target-key'),source=$('source-key');
-    if(originalKeyPitch<0){select.disabled=true;select.value='';source.textContent='Add Key- A#';prefs.transpose=0;applyPreferences();return;}
-    select.disabled=false;source.textContent=`Key- ${keyNames[originalKeyPitch]} →`;
     const preferenceKey=songPreferenceKey();
+    const sourceChoice=$('source-key-choice');
+    const sourceOverride=Number(prefs.sourceKeys[preferenceKey]);
+    const hasSourceOverride=Object.prototype.hasOwnProperty.call(prefs.sourceKeys,preferenceKey)&&Number.isInteger(sourceOverride)&&sourceOverride>=0&&sourceOverride<12;
+    originalKeyPitch=hasSourceOverride?sourceOverride:reportedKeyPitch;
+    sourceChoice.value=hasSourceOverride?String(sourceOverride):'auto';
+    const select=$('target-key'),source=$('source-key');
+    if(originalKeyPitch<0){select.disabled=true;select.value='';source.textContent='Choose source key';prefs.transpose=0;applyPreferences();return;}
+    select.disabled=false;source.textContent=`Key- ${keyNames[originalKeyPitch]}`;
     const remembered=Object.prototype.hasOwnProperty.call(prefs.targetKeys,preferenceKey);
     let target=remembered?Number(prefs.targetKeys[preferenceKey]):originalKeyPitch;
     if(!Number.isInteger(target)||target<0||target>11)target=originalKeyPitch;
     if(!remembered){prefs.targetKeys[preferenceKey]=target;save();}
     prefs.transpose=transposeBetween(originalKeyPitch,target);select.value=String(target);applyPreferences();
   };
+  const refreshChords=()=>{renderSequence+=1;lyrics.replaceChildren();lastRenderedActive=-1;lastActive=-2;};
   const position = () => !state ? 0 : state.position + (state.playing ? Math.max(0,performance.now()+hostOffset+prefs.nudge-state.hostMs)/1000 : 0);
   const canControlScroll = () => !!state&&clientId>0&&(state.controllerId===clientId||state.controllerId2===clientId);
   const isChordOnly = text => {
@@ -83,22 +86,9 @@
     }
     return result;
   };
-  const transposeRoot = (root,accidental,amount) => {
-    const natural={C:0,D:2,E:4,F:5,G:7,A:9,B:11};
-    const names=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
-    let pitch=natural[root.toUpperCase()]+(accidental==='#'?1:accidental==='b'?-1:0)+amount;
-    return names[((pitch%12)+12)%12];
-  };
-  const transposeChord = (token,amount) => {
-    if(!amount)return token;
-    let changed=token.replace(/^([|:]*)([A-G])([#b]?)/,(match,bars,root,accidental)=>`${bars}${transposeRoot(root,accidental,amount)}`);
-    changed=changed.replace(/\/([A-G])([#b]?)/g,(match,root,accidental)=>`/${transposeRoot(root,accidental,amount)}`);
-    return changed;
-  };
-  const transposeChordLine = line => line.split(/(\s+)/).map(part=>/^\s+$/.test(part)?part:transposeChord(part,prefs.transpose)).join('');
   const appendBlock = (parent,block) => {
     const wrapper=document.createElement('div'); wrapper.className='lyric-block';
-    const chord=document.createElement('div'); chord.className='chord-row'; chord.textContent=block.chord?transposeChordLine(block.chord):'\u00a0';
+    const chord=document.createElement('div'); chord.className='chord-row'; chord.textContent=block.chord?transposeChordLine(block.chord,prefs.transpose):'\u00a0';
     const text=document.createElement('div'); text.className='lyric-row'; text.textContent=block.text;
     wrapper.append(chord,text); parent.appendChild(wrapper);
   };
@@ -147,10 +137,12 @@
     if(data.type==='hello')clientId=Number(data.clientId)||0;
     else if(data.type==='state'){
       state=data;
-      if(renderedLyrics!==data.lyrics||renderedSongId!==(data.songId||'')){
+      const incomingKeyPitch=Number.isInteger(data.songKey)&&data.songKey>=0?data.songKey:
+        (renderedLyrics===data.lyrics&&renderedSongId===(data.songId||'')?reportedKeyPitch:(parse(data.lyrics||'').find(row=>row.key)?.keyPitch??-1));
+      if(renderedLyrics!==data.lyrics||renderedSongId!==(data.songId||'')||reportedKeyPitch!==incomingKeyPitch){
         renderedLyrics=data.lyrics;renderedSongId=data.songId||'';rows=parse(data.lyrics||'');
-        originalKeyPitch=Number.isInteger(data.songKey)&&data.songKey>=0?data.songKey:(rows.find(row=>row.key)?.keyPitch??-1);
-        syncKeyControls();lastActive=-2;lastRenderedActive=-1;
+        reportedKeyPitch=incomingKeyPitch;
+        syncKeyControls();refreshChords();
       }
     }
     else if(data.type==='pong'){const sent=Number(data.clientSent),received=performance.now(),measured=Number(data.hostMs)-(sent+received)/2;hostOffset+=(measured-hostOffset)*.2;}
@@ -216,7 +208,13 @@
   $('target-key').addEventListener('change',event=>{
     const target=Number(event.target.value);if(originalKeyPitch<0||!Number.isInteger(target))return;
     prefs.targetKeys[songPreferenceKey()]=target;prefs.transpose=transposeBetween(originalKeyPitch,target);
-    save();applyPreferences();lastActive=-2;
+    save();applyPreferences();refreshChords();
+  });
+  $('source-key-choice').addEventListener('change',event=>{
+    const value=event.target.value,preferenceKey=songPreferenceKey();
+    if(value==='auto')delete prefs.sourceKeys[preferenceKey];
+    else {const pitch=Number(value);if(!Number.isInteger(pitch)||pitch<0||pitch>11)return;prefs.sourceKeys[preferenceKey]=pitch;}
+    save();syncKeyControls();refreshChords();
   });
   $('proportional').addEventListener('change',e=>{prefs.proportional=e.target.checked;save();applyPreferences();}); $('show-clock').addEventListener('change',e=>{prefs.clock=e.target.checked;save();applyPreferences();});
   document.querySelectorAll('[data-nudge]').forEach(button=>button.addEventListener('click',()=>{prefs.nudge=button.dataset.nudge==='reset'?0:prefs.nudge+Number(button.dataset.nudge);save();applyPreferences();}));

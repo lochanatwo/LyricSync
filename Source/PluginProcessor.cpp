@@ -1,37 +1,15 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
+#include "Lyrics/ChordTransposer.h"
 #include "Lyrics/LiveTagger.h"
 
 #include <cmath>
 #include <cctype>
-#include <sstream>
 #include <utility>
 #include <vector>
 
 namespace
 {
-bool isChordOnlyLine(const std::string& text)
-{
-    std::istringstream input(text);
-    std::string token;
-    bool found = false;
-    while (input >> token)
-    {
-        while (! token.empty() && (token.front() == '|' || token.front() == ':')) token.erase(token.begin());
-        while (! token.empty() && (token.back() == '|' || token.back() == ':')) token.pop_back();
-        if (token.empty()) continue;
-        found = true;
-        if (token.front() < 'A' || token.front() > 'G') return false;
-        for (std::size_t i = 1; i < token.size(); ++i)
-        {
-            const auto c = token[i];
-            if (! std::isalnum(static_cast<unsigned char>(c)) && c != '#' && c != 'b' && c != '/'
-                && c != '+' && c != '-' && c != '(' && c != ')') return false;
-        }
-    }
-    return found;
-}
-
 bool isDividerLine(const std::string& text)
 {
     auto visible = std::size_t { 0 };
@@ -53,7 +31,7 @@ std::vector<int> displayLineStarts(const voclyrics::Song& song)
             || voclyrics::isSongKeyLine(song.lyrics[static_cast<std::size_t>(i)].text)) continue;
         if (isDividerLine(song.lyrics[static_cast<std::size_t>(i)].text)) continue;
         starts.push_back(i);
-        if (isChordOnlyLine(song.lyrics[static_cast<std::size_t>(i)].text)
+        if (voclyrics::isChordOnlyLine(song.lyrics[static_cast<std::size_t>(i)].text)
             && i + 1 < static_cast<int>(song.lyrics.size())
             && ! song.lyrics[static_cast<std::size_t>(i + 1)].isSection)
             ++i;
@@ -178,6 +156,17 @@ void VocLyricsAudioProcessor::setTargetKeyForActiveSong(int targetPitchClass)
     setTransposeSemitones(voclyrics::transposeSemitonesForKeys(sourcePitch, targetPitchClass));
 }
 
+void VocLyricsAudioProcessor::setSourceKeyForActiveSong(int sourcePitchClass)
+{
+    if (sourcePitchClass < -1 || sourcePitchClass >= 12) return;
+    const juce::ScopedLock lock(modelLock);
+    auto* song = setlist.activeSong();
+    if (song == nullptr) return;
+    song->sourceKeyOverride = sourcePitchClass;
+    applyActiveSongTranspose();
+    updateServerState();
+}
+
 void VocLyricsAudioProcessor::applyActiveSongTranspose()
 {
     const auto* song = setlist.activeSong();
@@ -279,15 +268,19 @@ void VocLyricsAudioProcessor::registerTapTempo()
     setAutoScrollEnabled(false);
     const auto now = juce::Time::getMillisecondCounterHiRes();
     const auto bpm = tapTempoClock.tap(now);
+    if (tapTempoClock.tapCount() == 1)
+        tapScrollLastTickMilliseconds = 0.0;
     tapTempoBpm.store(bpm, std::memory_order_relaxed);
     if (server.scrollLine() < 0) server.setScrollLine(starts.front());
-    tapScrollLastTickMilliseconds = now;
+    if (bpm > 0 && tapScrollLastTickMilliseconds <= 0.0)
+        tapScrollLastTickMilliseconds = now;
     tapScrollEnabled.store(true, std::memory_order_relaxed);
 }
 
 void VocLyricsAudioProcessor::stopTapTempo()
 {
     tapScrollEnabled.store(false, std::memory_order_relaxed);
+    tapTempoBpm.store(0, std::memory_order_relaxed);
     tapScrollLastTickMilliseconds = 0.0;
 }
 
@@ -449,7 +442,7 @@ void VocLyricsAudioProcessor::timerCallback()
         if (bpm > 0)
         {
             const auto now = juce::Time::getMillisecondCounterHiRes();
-            const auto interval = 60000.0 / static_cast<double>(bpm);
+            const auto interval = 240000.0 / static_cast<double>(bpm);
             if (now - tapScrollLastTickMilliseconds >= interval)
             {
                 const auto previousLine = server.scrollLine();
@@ -533,6 +526,7 @@ void VocLyricsAudioProcessor::getStateInformation(juce::MemoryBlock& destination
         child.setProperty("lyrics", juce::String(voclyrics::LrcParser::serialize(song.lyrics)), nullptr);
         child.setProperty("start", song.startSeconds, nullptr);
         child.setProperty("autoAdvance", song.autoAdvance, nullptr);
+        child.setProperty("sourceKeyOverride", song.sourceKeyOverride, nullptr);
         const auto target = targetKeyBySong.find(song.id);
         if (target != targetKeyBySong.end())
             child.setProperty("targetKey", target->second, nullptr);
@@ -559,6 +553,7 @@ void VocLyricsAudioProcessor::setStateInformation(const void* data, int size)
         song.lyrics = voclyrics::LrcParser::parse(child.getProperty("lyrics").toString().toStdString());
         song.startSeconds = static_cast<double>(child.getProperty("start", -1.0));
         song.autoAdvance = static_cast<bool>(child.getProperty("autoAdvance", false));
+        song.sourceKeyOverride = juce::jlimit(-1, 11, static_cast<int>(child.getProperty("sourceKeyOverride", -1)));
         if (child.hasProperty("targetKey"))
         {
             const auto target = static_cast<int>(child.getProperty("targetKey"));

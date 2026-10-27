@@ -8,6 +8,7 @@ namespace voclyrics
 int keyPitchClass(const std::string& text)
 {
     std::size_t position = 0;
+    if (text.compare(0, 3, "\xef\xbb\xbf") == 0) position = 3;
     const auto skipSpace = [&]
     {
         while (position < text.size() && std::isspace(static_cast<unsigned char>(text[position]))) ++position;
@@ -29,6 +30,16 @@ int keyPitchClass(const std::string& text)
     char accidental = '\0';
     if (position < text.size() && (text[position] == '#' || text[position] == 'b'))
         accidental = text[position++];
+    else if (text.compare(position, 3, "\xe2\x99\xaf") == 0)
+    {
+        accidental = '#';
+        position += 3;
+    }
+    else if (text.compare(position, 3, "\xe2\x99\xad") == 0)
+    {
+        accidental = 'b';
+        position += 3;
+    }
     skipSpace();
     if (position != text.size())
     {
@@ -60,6 +71,8 @@ int keyPitchClass(const std::string& text)
 
 int songKeyPitchClass(const Song& song)
 {
+    if (song.sourceKeyOverride >= 0 && song.sourceKeyOverride < 12)
+        return song.sourceKeyOverride;
     for (const auto& line : song.lyrics)
     {
         const auto pitch = keyPitchClass(line.text);

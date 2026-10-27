@@ -1,35 +1,13 @@
 #include "DisplayView.h"
+#include "Lyrics/ChordTransposer.h"
 #include "Lyrics/LrcParser.h"
 #include <cmath>
 #include <cctype>
-#include <sstream>
 #include <utility>
 #include <vector>
 
 namespace
 {
-bool isChordOnlyLine(const std::string& text)
-{
-    std::istringstream input(text);
-    std::string token;
-    bool found = false;
-    while (input >> token)
-    {
-        while (! token.empty() && (token.front() == '|' || token.front() == ':')) token.erase(token.begin());
-        while (! token.empty() && (token.back() == '|' || token.back() == ':')) token.pop_back();
-        if (token.empty()) continue;
-        found = true;
-        if (token.front() < 'A' || token.front() > 'G') return false;
-        for (std::size_t i = 1; i < token.size(); ++i)
-        {
-            const auto c = token[i];
-            if (! std::isalnum(static_cast<unsigned char>(c)) && c != '#' && c != 'b' && c != '/'
-                && c != '+' && c != '-' && c != '(' && c != ')') return false;
-        }
-    }
-    return found;
-}
-
 bool isDividerLine(const std::string& text)
 {
     auto visible = std::size_t { 0 };
@@ -50,69 +28,6 @@ struct DisplayBlock
     juce::String section;
 };
 
-std::string transposedRoot(char root, char accidental, int semitones)
-{
-    static constexpr int naturalPitches[] { 9, 11, 0, 2, 4, 5, 7 };
-    static constexpr const char* sharpNames[] { "C", "C#", "D", "D#", "E", "F",
-                                                "F#", "G", "G#", "A", "A#", "B" };
-    auto pitch = naturalPitches[root - 'A'];
-    if (accidental == '#') ++pitch;
-    else if (accidental == 'b') --pitch;
-    pitch = (pitch + semitones) % 12;
-    if (pitch < 0) pitch += 12;
-    return sharpNames[pitch];
-}
-
-std::string transposeChordToken(const std::string& token, int semitones)
-{
-    if (token.empty() || semitones == 0) return token;
-    std::string result;
-    std::size_t position = 0;
-    while (position < token.size() && (token[position] == '|' || token[position] == ':'))
-        result += token[position++];
-    if (position >= token.size() || token[position] < 'A' || token[position] > 'G') return token;
-    const auto root = token[position++];
-    const auto accidental = position < token.size() && (token[position] == '#' || token[position] == 'b')
-                                ? token[position++] : '\0';
-    result += transposedRoot(root, accidental, semitones);
-    while (position < token.size())
-    {
-        if (token[position] == '/' && position + 1 < token.size()
-            && token[position + 1] >= 'A' && token[position + 1] <= 'G')
-        {
-            result += '/';
-            const auto bassRoot = token[++position];
-            ++position;
-            const auto bassAccidental = position < token.size() && (token[position] == '#' || token[position] == 'b')
-                                            ? token[position++] : '\0';
-            result += transposedRoot(bassRoot, bassAccidental, semitones);
-        }
-        else
-        {
-            result += token[position++];
-        }
-    }
-    return result;
-}
-
-juce::String transposeChordLine(const juce::String& line, int semitones)
-{
-    const auto source = line.toStdString();
-    std::string output;
-    for (std::size_t position = 0; position < source.size();)
-    {
-        if (std::isspace(static_cast<unsigned char>(source[position])))
-        {
-            output += source[position++];
-            continue;
-        }
-        auto end = position;
-        while (end < source.size() && ! std::isspace(static_cast<unsigned char>(source[end]))) ++end;
-        output += transposeChordToken(source.substr(position, end - position), semitones);
-        position = end;
-    }
-    return juce::String(output);
-}
 }
 
 DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
@@ -125,6 +40,7 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
     addAndMakeVisible(stopTempoButton);
     addAndMakeVisible(tapTempoStatus);
     addAndMakeVisible(autoScrollSpeed);
+    addAndMakeVisible(sourceKeyChoice);
     addAndMakeVisible(targetKeyChoice);
     addAndMakeVisible(upButton);
     addAndMakeVisible(downButton);
@@ -147,9 +63,16 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
     tapTempoButton.onClick = [this] { processor.registerTapTempo(); };
     stopTempoButton.onClick = [this] { processor.stopTapTempo(); };
     tapTempoStatus.setJustificationType(juce::Justification::centredLeft);
+    sourceKeyChoice.addItem("Source: file", 1);
+    for (int pitch = 0; pitch < 12; ++pitch)
+        sourceKeyChoice.addItem(juce::String("Source: ") + voclyrics::keyNameForPitchClass(pitch).c_str(), pitch + 2);
+    sourceKeyChoice.onChange = [this]
+    {
+        processor.setSourceKeyForActiveSong(sourceKeyChoice.getSelectedId() - 2);
+    };
     targetKeyChoice.setTextWhenNothingSelected("Target key");
     for (int pitch = 0; pitch < 12; ++pitch)
-        targetKeyChoice.addItem(juce::String(voclyrics::keyNameForPitchClass(pitch).c_str()), pitch + 1);
+        targetKeyChoice.addItem(juce::String("Target: ") + voclyrics::keyNameForPitchClass(pitch).c_str(), pitch + 1);
     targetKeyChoice.onChange = [this]
     {
         const auto model = processor.getSetlistSnapshot();
@@ -250,14 +173,15 @@ void DisplayView::paint(juce::Graphics& g)
 void DisplayView::resized()
 {
     auto top = getLocalBounds().removeFromTop(38).reduced(8, 4);
-    proportional.setBounds(top.removeFromLeft(150));
-    clock.setBounds(top.removeFromLeft(90));
-    autoScroll.setBounds(top.removeFromLeft(120));
-    autoScrollSpeed.setBounds(top.removeFromLeft(240));
-    tapTempoButton.setBounds(top.removeFromLeft(106));
-    stopTempoButton.setBounds(top.removeFromLeft(52));
-    tapTempoStatus.setBounds(top.removeFromLeft(105));
-    targetKeyChoice.setBounds(top.removeFromLeft(120));
+    proportional.setBounds(top.removeFromLeft(125));
+    clock.setBounds(top.removeFromLeft(75));
+    autoScroll.setBounds(top.removeFromLeft(105));
+    autoScrollSpeed.setBounds(top.removeFromLeft(200));
+    tapTempoButton.setBounds(top.removeFromLeft(95));
+    stopTempoButton.setBounds(top.removeFromLeft(50));
+    tapTempoStatus.setBounds(top.removeFromLeft(100));
+    sourceKeyChoice.setBounds(top.removeFromLeft(110));
+    targetKeyChoice.setBounds(top.removeFromLeft(115));
     auto controls = getLocalBounds().removeFromRight(82).withSizeKeepingCentre(62, 154);
     upButton.setBounds(controls.removeFromTop(70));
     controls.removeFromTop(14);
@@ -277,6 +201,7 @@ void DisplayView::timerCallback()
     titleText = song != nullptr ? song->title : "VocLyrics";
     transposeText = juce::String("TRANSPOSED BY: ") + juce::String(processor.getTransposeSemitones());
     const auto sourcePitch = song != nullptr ? voclyrics::songKeyPitchClass(*song) : -1;
+    sourceKeyChoice.setSelectedId(song != nullptr ? song->sourceKeyOverride + 2 : 1, juce::dontSendNotification);
     const auto targetPitch = sourcePitch >= 0 ? (sourcePitch + processor.getTransposeSemitones() + 120) % 12 : -1;
     targetKeyChoice.setEnabled(sourcePitch >= 0);
     targetKeyChoice.setSelectedId(targetPitch >= 0 ? targetPitch + 1 : 0, juce::dontSendNotification);
@@ -310,7 +235,7 @@ void DisplayView::timerCallback()
             DisplayBlock block;
             block.sourceIndex = i;
             block.section = currentSection;
-            if (isChordOnlyLine(line.text) && i + 1 < static_cast<int>(song->lyrics.size())
+            if (voclyrics::isChordOnlyLine(line.text) && i + 1 < static_cast<int>(song->lyrics.size())
                 && ! song->lyrics[static_cast<std::size_t>(i + 1)].isSection)
             {
                 block.chords = juce::String(line.text);
@@ -332,7 +257,8 @@ void DisplayView::timerCallback()
         }
         for (std::size_t i = 0; i < visibleLyrics.size() && start + i < blocks.size(); ++i)
         {
-            nextChords[i] = transposeChordLine(blocks[start + i].chords, processor.getTransposeSemitones());
+            nextChords[i] = juce::String(voclyrics::transposeChordLine(
+                blocks[start + i].chords.toStdString(), processor.getTransposeSemitones()));
             nextLyrics[i] = blocks[start + i].lyrics;
         }
     }
@@ -361,8 +287,9 @@ void DisplayView::timerCallback()
     autoScrollSpeed.setEnabled(hostControls);
     const auto tapActive = processor.isTapTempoEnabled();
     const auto bpm = processor.getTapTempoBpm();
-    tapTempoStatus.setText(bpm > 0 ? juce::String(bpm) + " BPM"
-                                  : (tapActive ? juce::String("Tap again") : juce::String("Shift+Space")),
+    tapTempoStatus.setText(bpm > 0 ? juce::String(bpm) + " BPM / bar"
+                                  : (tapActive ? juce::String("Tap ") + juce::String(juce::jmin(4, processor.getTapTempoTapCount())) + "/4"
+                                               : juce::String("Shift+Space")),
                            juce::dontSendNotification);
     tapTempoButton.setEnabled(hostControls);
     stopTempoButton.setEnabled(tapActive);

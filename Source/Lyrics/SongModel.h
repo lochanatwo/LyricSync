@@ -11,6 +11,7 @@ struct Song
     std::string id;
     std::string title = "Untitled Song";
     std::vector<LyricLine> lyrics;
+    int sourceKeyOverride = -1;
     double startSeconds = -1.0;
     bool autoAdvance = false;
 };

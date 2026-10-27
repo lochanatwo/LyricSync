@@ -1,4 +1,5 @@
 #include "Lyrics/LrcParser.h"
+#include "Lyrics/ChordTransposer.h"
 #include "Lyrics/LiveTagger.h"
 #include "Lyrics/SetlistModel.h"
 #include "Lyrics/TapTempo.h"
@@ -46,6 +47,15 @@ void testLiveTaggerAndSetlist()
            "Key metadata beside transpose amount must keep key selection available");
     expect(voclyrics::keyPitchClass("Key- Bb (TRANSPOSED BY: -2)") == 10,
            "Flat key metadata beside transpose amount must be recognized");
+    expect(voclyrics::keyPitchClass("\xef\xbb\xbfKey- A\xe2\x99\xaf") == 10,
+           "UTF-8 file marker and sharp sign should still reveal the source key");
+    song.sourceKeyOverride = 9;
+    expect(voclyrics::songKeyPitchClass(song) == 9, "Explicit source key should override unrecognized file metadata");
+    expect(voclyrics::transposeSemitonesForKeys(voclyrics::songKeyPitchClass(song), 0) == 3,
+           "Changing the target from A to C should produce +3 semitones");
+    expect(voclyrics::isChordOnlyLine("A     E/G#"), "Chord row must be detected");
+    expect(voclyrics::transposeChordLine("A     E/G#", 3) == "C     G/B",
+           "Target key must change both main and slash chords on desktop");
     voclyrics::LiveTagger tagger(song);
     expect(tagger.tagNext(12.345), "Live tag should timestamp the next untimed line");
     expect(song.lyrics.front().timeSeconds < 0.0, "Live tagging must skip the song key line");
@@ -62,9 +72,16 @@ void testTapTempo()
 {
     voclyrics::TapTempo tempo;
     expect(tempo.tap(0.0) == 0, "The first tap should wait for a beat interval");
-    expect(tempo.tap(500.0) == 120, "Half-second taps should set 120 BPM");
-    expect(tempo.tap(1000.0) == 120, "Repeated taps should keep a stable tempo");
-    expect(tempo.tap(3500.0) == 0, "A long pause should start a fresh tap sequence");
+    expect(tempo.tap(500.0) == 0 && tempo.tap(1000.0) == 0,
+           "Tempo should wait for four quarter-note taps");
+    expect(tempo.tap(1500.0) == 120, "Four half-second taps should set 120 BPM");
+    expect(tempo.tap(3000.0) == 80, "Slow taps should lower the tempo");
+    tempo.reset();
+    expect(tempo.tap(0.0) == 0 && tempo.tap(1500.0) == 0 && tempo.tap(3000.0) == 0,
+           "A slow four-beat count should wait for the fourth tap");
+    expect(tempo.tap(4500.0) == 40, "Four 1.5-second taps should allow 40 BPM");
+    expect(tempo.tap(14000.0) == 0 && tempo.tapCount() == 1,
+           "A long pause should start a fresh four-tap sequence");
 }
 
 void testSyncClock()

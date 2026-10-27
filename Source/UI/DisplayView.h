@@ -17,6 +17,7 @@ private:
     juce::TextButton tapTempoButton { "Tap tempo" }, stopTempoButton { "Stop" };
     juce::Label tapTempoStatus;
     juce::Slider autoScrollSpeed;
+    juce::ComboBox sourceKeyChoice;
     juce::ComboBox targetKeyChoice;
     juce::TextButton upButton { juce::String::charToString(0x2191) };
     juce::TextButton downButton { juce::String::charToString(0x2193) };
