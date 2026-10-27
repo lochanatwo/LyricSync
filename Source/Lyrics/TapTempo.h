@@ -54,6 +54,10 @@ public:
     }
 
     int tapCount() const noexcept { return taps; }
+    static double fourBeatBarMilliseconds(int bpm) noexcept
+    {
+        return bpm > 0 ? 240000.0 / static_cast<double>(bpm) : 0.0;
+    }
 
 private:
     std::array<double, 5> intervals {};

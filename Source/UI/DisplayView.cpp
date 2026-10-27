@@ -38,7 +38,9 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
     addAndMakeVisible(autoScroll);
     addAndMakeVisible(tapTempoButton);
     addAndMakeVisible(stopTempoButton);
+    addAndMakeVisible(useManualBpmButton);
     addAndMakeVisible(tapTempoStatus);
+    addAndMakeVisible(manualTempoBpm);
     addAndMakeVisible(autoScrollSpeed);
     addAndMakeVisible(sourceKeyChoice);
     addAndMakeVisible(targetKeyChoice);
@@ -62,6 +64,15 @@ DisplayView::DisplayView(VocLyricsAudioProcessor& p) : processor(p)
     };
     tapTempoButton.onClick = [this] { processor.registerTapTempo(); };
     stopTempoButton.onClick = [this] { processor.stopTapTempo(); };
+    manualTempoBpm.setRange(8.0, 300.0, 1.0);
+    manualTempoBpm.setValue(processor.getManualTempoBpm(), juce::dontSendNotification);
+    manualTempoBpm.setTextValueSuffix(" BPM");
+    manualTempoBpm.setSliderStyle(juce::Slider::LinearHorizontal);
+    manualTempoBpm.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 76, 24);
+    useManualBpmButton.onClick = [this]
+    {
+        processor.setManualTempoBpm(juce::roundToInt(manualTempoBpm.getValue()));
+    };
     tapTempoStatus.setJustificationType(juce::Justification::centredLeft);
     sourceKeyChoice.addItem("Source: file", 1);
     for (int pitch = 0; pitch < 12; ++pitch)
@@ -100,12 +111,14 @@ void DisplayView::paint(juce::Graphics& g)
     g.setColour(juce::Colour(0xff92a0b5));
     g.setFont(juce::FontOptions(15.0f, juce::Font::bold));
     g.drawText(roleText + "  |  " + keyText + "  |  " + transposeText,
-               40, 42, getWidth() - 80, 22, juce::Justification::centred);
+               40, 76, getWidth() - 80, 22, juce::Justification::centred);
     g.setColour(juce::Colour(0xfff5f7fa));
     g.setFont(juce::FontOptions(22.0f, juce::Font::bold));
-    g.drawText(titleText, 40, 66, getWidth() - 80, 30, juce::Justification::centred);
+    g.drawText(titleText, 40, 100, getWidth() - 80, 30, juce::Justification::centred);
 
-    auto sheet = getLocalBounds().reduced(38, 100);
+    auto sheet = getLocalBounds().reduced(38);
+    sheet.removeFromTop(94);
+    sheet.removeFromBottom(40);
     sheet.removeFromRight(76);
     g.setColour(juce::Colour(0xfffffdf8));
     g.fillRoundedRectangle(sheet.toFloat(), 22.0f);
@@ -180,8 +193,13 @@ void DisplayView::resized()
     tapTempoButton.setBounds(top.removeFromLeft(95));
     stopTempoButton.setBounds(top.removeFromLeft(50));
     tapTempoStatus.setBounds(top.removeFromLeft(100));
-    sourceKeyChoice.setBounds(top.removeFromLeft(110));
-    targetKeyChoice.setBounds(top.removeFromLeft(115));
+    auto tempoAndKey = getLocalBounds();
+    tempoAndKey.removeFromTop(40);
+    tempoAndKey = tempoAndKey.removeFromTop(34).reduced(8, 4);
+    manualTempoBpm.setBounds(tempoAndKey.removeFromLeft(175));
+    useManualBpmButton.setBounds(tempoAndKey.removeFromLeft(92));
+    sourceKeyChoice.setBounds(tempoAndKey.removeFromLeft(115));
+    targetKeyChoice.setBounds(tempoAndKey.removeFromLeft(120));
     auto controls = getLocalBounds().removeFromRight(82).withSizeKeepingCentre(62, 154);
     upButton.setBounds(controls.removeFromTop(70));
     controls.removeFromTop(14);
@@ -197,6 +215,7 @@ void DisplayView::timerCallback()
         displayedSongId = songId;
         displaySourceIndex = -1;
         animationStartMilliseconds = 0.0;
+        manualTempoBpm.setValue(processor.getManualTempoBpm(), juce::dontSendNotification);
     }
     titleText = song != nullptr ? song->title : "VocLyrics";
     transposeText = juce::String("TRANSPOSED BY: ") + juce::String(processor.getTransposeSemitones());
@@ -292,6 +311,7 @@ void DisplayView::timerCallback()
                                                : juce::String("Shift+Space")),
                            juce::dontSendNotification);
     tapTempoButton.setEnabled(hostControls);
+    useManualBpmButton.setEnabled(hostControls);
     stopTempoButton.setEnabled(tapActive);
     upButton.setEnabled(hostControls);
     downButton.setEnabled(hostControls);

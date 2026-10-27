@@ -277,6 +277,24 @@ void VocLyricsAudioProcessor::registerTapTempo()
     tapScrollEnabled.store(true, std::memory_order_relaxed);
 }
 
+void VocLyricsAudioProcessor::setManualTempoBpm(int bpm)
+{
+    if (! server.hostControlsScroll()) return;
+    const juce::ScopedLock lock(modelLock);
+    const auto* song = setlist.activeSong();
+    if (song == nullptr) return;
+    const auto starts = displayLineStarts(*song);
+    if (starts.empty()) return;
+    setAutoScrollEnabled(false);
+    tapTempoClock.reset();
+    const auto bounded = juce::jlimit(8, 300, bpm);
+    manualTempoBpm.store(bounded, std::memory_order_relaxed);
+    tapTempoBpm.store(bounded, std::memory_order_relaxed);
+    if (server.scrollLine() < 0) server.setScrollLine(starts.front());
+    tapScrollLastTickMilliseconds = juce::Time::getMillisecondCounterHiRes();
+    tapScrollEnabled.store(true, std::memory_order_relaxed);
+}
+
 void VocLyricsAudioProcessor::stopTapTempo()
 {
     tapScrollEnabled.store(false, std::memory_order_relaxed);
@@ -442,7 +460,7 @@ void VocLyricsAudioProcessor::timerCallback()
         if (bpm > 0)
         {
             const auto now = juce::Time::getMillisecondCounterHiRes();
-            const auto interval = 240000.0 / static_cast<double>(bpm);
+            const auto interval = voclyrics::TapTempo::fourBeatBarMilliseconds(bpm);
             if (now - tapScrollLastTickMilliseconds >= interval)
             {
                 const auto previousLine = server.scrollLine();
@@ -518,6 +536,7 @@ void VocLyricsAudioProcessor::getStateInformation(juce::MemoryBlock& destination
     root.setProperty("transposeSemitones", getTransposeSemitones(), nullptr);
     root.setProperty("hostRole", hostRole, nullptr);
     root.setProperty("autoScrollLinesPerMinute", getAutoScrollLinesPerMinute(), nullptr);
+    root.setProperty("manualTempoBpm", getManualTempoBpm(), nullptr);
     for (const auto& song : setlist.songs())
     {
         juce::ValueTree child("Song");
@@ -583,6 +602,8 @@ void VocLyricsAudioProcessor::setStateInformation(const void* data, int size)
     }
     applyActiveSongTranspose();
     setAutoScrollLinesPerMinute(static_cast<int>(root.getProperty("autoScrollLinesPerMinute", 12)));
+    manualTempoBpm.store(juce::jlimit(8, 300, static_cast<int>(root.getProperty("manualTempoBpm", 120))),
+                         std::memory_order_relaxed);
     setAutoScrollEnabled(false);
     stopTapTempo();
     hostRole = root.getProperty("hostRole", "Main Singer").toString();

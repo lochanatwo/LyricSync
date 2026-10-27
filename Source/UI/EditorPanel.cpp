@@ -46,7 +46,9 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
     addAndMakeVisible(autoScroll);
     addAndMakeVisible(tapTempoButton);
     addAndMakeVisible(stopTempoButton);
+    addAndMakeVisible(useManualBpmButton);
     addAndMakeVisible(tapTempoStatus);
+    addAndMakeVisible(manualTempoBpm);
     addAndMakeVisible(autoScrollSpeedLabel);
     addAndMakeVisible(autoScrollSpeed);
     addAndMakeVisible(originalKeyStatus);
@@ -80,6 +82,17 @@ EditorPanel::EditorPanel(VocLyricsAudioProcessor& p) : processor(p)
         timerCallback();
     };
     stopTempoButton.onClick = [this] { processor.stopTapTempo(); timerCallback(); };
+    manualTempoBpm.setRange(8.0, 300.0, 1.0);
+    manualTempoBpm.setValue(processor.getManualTempoBpm(), juce::dontSendNotification);
+    manualTempoBpm.setTextValueSuffix(" BPM");
+    manualTempoBpm.setSliderStyle(juce::Slider::LinearHorizontal);
+    manualTempoBpm.setTextBoxStyle(juce::Slider::TextBoxLeft, false, 76, 24);
+    useManualBpmButton.onClick = [this]
+    {
+        processor.setManualTempoBpm(juce::roundToInt(manualTempoBpm.getValue()));
+        shareScroll.setToggleState(false, juce::dontSendNotification);
+        timerCallback();
+    };
     tapTempoStatus.setJustificationType(juce::Justification::centredLeft);
     sourceKeyChoice.addItem("Source: file", 1);
     for (int pitch = 0; pitch < 12; ++pitch)
@@ -164,9 +177,12 @@ void EditorPanel::resized()
     autoScroll.setBounds(autoControls.removeFromLeft(130).reduced(3));
     autoScrollSpeedLabel.setBounds(autoControls.removeFromLeft(55).reduced(3));
     autoScrollSpeed.setBounds(autoControls.removeFromLeft(235).reduced(3));
-    tapTempoButton.setBounds(autoControls.removeFromLeft(110).reduced(3));
-    stopTempoButton.setBounds(autoControls.removeFromLeft(54).reduced(3));
-    tapTempoStatus.setBounds(autoControls.reduced(3));
+    auto tempoControls = area.removeFromTop(40);
+    manualTempoBpm.setBounds(tempoControls.removeFromLeft(178).reduced(3));
+    useManualBpmButton.setBounds(tempoControls.removeFromLeft(90).reduced(3));
+    tapTempoButton.setBounds(tempoControls.removeFromLeft(110).reduced(3));
+    stopTempoButton.setBounds(tempoControls.removeFromLeft(54).reduced(3));
+    tapTempoStatus.setBounds(tempoControls.reduced(3));
     area.removeFromTop(4);
     lyrics.setBounds(area);
 }
@@ -195,6 +211,7 @@ void EditorPanel::timerCallback()
                                                : juce::String("Shift+Space")),
                            juce::dontSendNotification);
     tapTempoButton.setEnabled(processor.hostControlsSharedScroll());
+    useManualBpmButton.setEnabled(processor.hostControlsSharedScroll());
     stopTempoButton.setEnabled(tapActive);
     if (tapActive) shareScroll.setToggleState(false, juce::dontSendNotification);
     if (! shareScroll.getToggleState()) return;
@@ -233,6 +250,7 @@ void EditorPanel::loadFromProcessor()
 {
     const auto text = processor.getLyricsText();
     if (lyrics.getText() != text) lyrics.setText(text, false);
+    manualTempoBpm.setValue(processor.getManualTempoBpm(), juce::dontSendNotification);
     refreshKeyControls();
 }
 

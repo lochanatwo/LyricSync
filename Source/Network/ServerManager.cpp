@@ -291,7 +291,7 @@ int ServerManager::serveScript(mg_connection* connection, void*)
 }
 int ServerManager::serveKeyLogic(mg_connection* connection, void*)
 {
-    return sendAsset(connection, "text/javascript; charset=utf-8", VocLyricsWeb::key_logic_js, VocLyricsWeb::key_logic_jsSize);
+    return sendAsset(connection, "text/javascript; charset=utf-8", VocLyricsWeb::keylogic_js, VocLyricsWeb::keylogic_jsSize);
 }
 int ServerManager::serveStyle(mg_connection* connection, void*)
 {

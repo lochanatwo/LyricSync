@@ -86,9 +86,11 @@ public:
     int getAutoScrollLinesPerMinute() const noexcept { return autoScrollLinesPerMinute.load(std::memory_order_relaxed); }
     void setAutoScrollLinesPerMinute(int linesPerMinute);
     void registerTapTempo();
+    void setManualTempoBpm(int bpm);
     void stopTapTempo();
     bool isTapTempoEnabled() const noexcept { return tapScrollEnabled.load(std::memory_order_relaxed); }
     int getTapTempoBpm() const noexcept { return tapTempoBpm.load(std::memory_order_relaxed); }
+    int getManualTempoBpm() const noexcept { return manualTempoBpm.load(std::memory_order_relaxed); }
     int getTapTempoTapCount() const noexcept { return tapTempoClock.tapCount(); }
 
 private:
@@ -108,6 +110,7 @@ private:
     std::atomic<int> autoScrollLinesPerMinute { 12 };
     std::atomic<bool> tapScrollEnabled { false };
     std::atomic<int> tapTempoBpm { 0 };
+    std::atomic<int> manualTempoBpm { 120 };
 
     mutable juce::CriticalSection modelLock;
     voclyrics::SetlistModel setlist;

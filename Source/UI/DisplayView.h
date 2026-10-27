@@ -15,7 +15,9 @@ private:
     VocLyricsAudioProcessor& processor;
     juce::ToggleButton proportional { "Proportional text" }, clock { "Clock" }, autoScroll { "Auto scroll" };
     juce::TextButton tapTempoButton { "Tap tempo" }, stopTempoButton { "Stop" };
+    juce::TextButton useManualBpmButton { "Use BPM" };
     juce::Label tapTempoStatus;
+    juce::Slider manualTempoBpm;
     juce::Slider autoScrollSpeed;
     juce::ComboBox sourceKeyChoice;
     juce::ComboBox targetKeyChoice;

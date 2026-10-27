@@ -26,7 +26,9 @@ private:
     juce::ToggleButton shareScroll { "Share scroll" };
     juce::ToggleButton autoScroll { "Auto scroll" };
     juce::TextButton tapTempoButton { "Tap tempo" }, stopTempoButton { "Stop" };
+    juce::TextButton useManualBpmButton { "Use BPM" };
     juce::Label tapTempoStatus;
+    juce::Slider manualTempoBpm;
     juce::Label autoScrollSpeedLabel;
     juce::Slider autoScrollSpeed;
     juce::Label originalKeyStatus;

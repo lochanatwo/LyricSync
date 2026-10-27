@@ -80,6 +80,8 @@ void testTapTempo()
     expect(tempo.tap(0.0) == 0 && tempo.tap(1500.0) == 0 && tempo.tap(3000.0) == 0,
            "A slow four-beat count should wait for the fourth tap");
     expect(tempo.tap(4500.0) == 40, "Four 1.5-second taps should allow 40 BPM");
+    expect(voclyrics::TapTempo::fourBeatBarMilliseconds(40) == 6000.0,
+           "At 40 BPM a four-beat bar should last six seconds");
     expect(tempo.tap(14000.0) == 0 && tempo.tapCount() == 1,
            "A long pause should start a fresh four-tap sequence");
 }
